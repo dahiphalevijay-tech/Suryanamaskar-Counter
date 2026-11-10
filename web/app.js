@@ -1,6 +1,7 @@
 import { POSES, POSE_INFO, lerpPose } from './poses.js';
 import { RepCounter } from './counter.js';
 import { STR, SPEECH_LANG } from './i18n.js';
+import { dayKey, kcalFor, bmi, summarize } from './stats.js';
 
 const $ = (id) => document.getElementById(id);
 const store = {
@@ -16,18 +17,31 @@ function applyLang() {
   document.querySelectorAll('[data-t]').forEach((el) => { el.textContent = t(el.dataset.t); });
   $('play').textContent = t(playing ? 'pause' : 'play');
   showPose(Math.round(animPos) % 12);
+  renderProgress();
+  renderProfile();
 }
 
 // ---------- progress data ----------
-const dayKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+let period = 7;
 function addToday(n) {
   if (!n) return;
   const days = store.get('days', {});
   days[dayKey()] = Math.max(0, (days[dayKey()] || 0) + n);
   store.set('days', days);
 }
+function saveSession(sess) {
+  const all = store.get('sessions', []);
+  all.push(sess);
+  store.set('sessions', all.slice(-3000));
+}
+const fmtDur = (ms) => { const sec = Math.round(ms / 1000); return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`; };
+const fmtHour = (h) => new Date(2000, 0, 1, h).toLocaleTimeString(SPEECH_LANG[lang], { hour: 'numeric' });
+const fmtDay = (d) => d.toLocaleDateString(SPEECH_LANG[lang], { day: 'numeric', month: 'short' });
+const poseName = (step) => { const info = POSE_INFO[step - 1]; return `${step}. ${lang === 'en' ? info.en : info.dev}`; };
+
 function renderProgress() {
   const days = store.get('days', {});
+  const sessions = store.get('sessions', []);
   const today = days[dayKey()] || 0;
   $('todayBig').textContent = today;
   $('sToday').textContent = today;
@@ -37,19 +51,57 @@ function renderProgress() {
   if (!days[dayKey(d)]) d.setDate(d.getDate() - 1);
   while (days[dayKey(d)] > 0) { streak += 1; d.setDate(d.getDate() - 1); }
   $('sStreak').textContent = streak;
+
+  const sum = summarize(days, sessions, period);
   const bars = $('bars');
   bars.textContent = '';
-  const vals = [];
-  for (let i = 13; i >= 0; i--) { const x = new Date(); x.setDate(x.getDate() - i); vals.push([x.getDate(), days[dayKey(x)] || 0]); }
-  const max = Math.max(1, ...vals.map((v) => v[1]));
-  for (const [date, v] of vals) {
+  const max = Math.max(1, ...sum.bars.map((v) => v.count));
+  sum.bars.forEach((v, i) => {
     const col = document.createElement('div');
     const bar = document.createElement('i');
-    bar.style.height = `${(v / max) * 80}%`;
-    bar.title = String(v);
-    col.append(bar, document.createTextNode(String(date)));
+    bar.style.height = `${(v.count / max) * 80}%`;
+    bar.title = String(v.count);
+    const showLabel = period <= 7 || i % 7 === 1;
+    col.append(bar, document.createTextNode(showLabel ? String(v.date.getDate()) : '\u00a0'));
     bars.append(col);
-  }
+  });
+
+  const box = $('insights');
+  box.textContent = '';
+  const row = (label, value, cls = '') => {
+    const dt = document.createElement('dt'); dt.textContent = label;
+    const dd = document.createElement('dd'); dd.textContent = value; if (cls) dd.className = cls;
+    box.append(dt, dd);
+  };
+  const wide = (text) => { const dt = document.createElement('dt'); dt.className = 'wide'; dt.textContent = text; box.append(dt); };
+  if (!sum.total) { wide(t('noData')); return; }
+  row(t('iTotal'), String(sum.total));
+  const diff = sum.total - sum.prev;
+  row(t('iVsPrev'), `${diff > 0 ? '+' : ''}${diff}`, diff > 0 ? 'up' : '');
+  row(t('iDays'), `${sum.practised} ${t('of')} ${period}`);
+  if (sum.best) row(t('iBest'), `${sum.best.count} · ${fmtDay(sum.best.date)}`);
+  if (sum.rounds) {
+    row(t('iPace'), `${Math.round(sum.paceSec)} ${t('perRound')}`);
+    if (sum.usualHour !== null) row(t('iTime'), fmtHour(sum.usualHour));
+    row(t('iKcal'), sum.kcal ? `${Math.round(sum.kcal)} ${t('kcal')}` : t('addWeight'));
+    row(t('iMissed'), sum.missed ? `${poseName(sum.missed.step)} (${sum.missed.missed} ${t('of')} ${sum.missed.rounds} ${t('rounds')})` : t('iNoMiss'));
+  } else wide(t('sinceUpdate'));
+}
+
+function renderLastSummary() {
+  const last = store.get('sessions', []).slice(-1)[0];
+  const el = $('lastSummary');
+  if (!last || !last.n) { el.hidden = true; return; }
+  const parts = [`${t('lastSession')}: ${last.n}`];
+  if (last.rounds) { parts.push(fmtDur(last.ms)); parts.push(`${Math.round(last.ms / 1000 / last.rounds)} ${t('perRound')}`); }
+  if (last.kcal) parts.push(`${t('approx')} ${Math.round(last.kcal)} ${t('kcal')}`);
+  el.textContent = parts.join(' · ');
+  el.hidden = false;
+}
+
+function renderProfile() {
+  const b = bmi(Number($('weight').value), Number($('height').value));
+  $('bmi').textContent = b ? `${t('bmi')}: ${b.toFixed(1)}` : '';
 }
 
 // ---------- tabs ----------
@@ -128,6 +180,8 @@ let sessionCount = 0;
 let lastDetect = 0;
 let wakeLock = null;
 let noticeUntil = 0;
+let sess = null;
+let mirror = true;
 const guide = $('guide');
 const gctx = guide.getContext('2d');
 const dots = $('dots');
@@ -188,9 +242,12 @@ async function start() {
     console.error(e); showError(`${t('modelError')}\n[${e && (e.message || e)}]`); resetStart(); return;
   }
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: $('facing').value, width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
+    stream = await openCamera();
     cam.srcObject = stream;
     await cam.play();
+    const facing = stream.getVideoTracks()[0].getSettings().facingMode;
+    mirror = facing ? facing === 'user' : (!$('lens').value && $('facing').value === 'user');
+    listLenses();
   } catch (e) {
     console.error(e); showError(`${t('camError')}\n[${e && (e.name || '')} ${e && (e.message || e)}]`); resetStart(); return;
   }
@@ -198,6 +255,7 @@ async function start() {
   counter.o.mode = $('strictness').value;
   counter.reset();
   sessionCount = 0;
+  sess = { t: Date.now(), ms: 0, rounds: 0, rej: 0, steps: new Array(12).fill(0) };
   guide.hidden = true;
   $('count').textContent = '0';
   $('idle').hidden = true; $('live').hidden = false;
@@ -206,11 +264,44 @@ async function start() {
 }
 function resetStart() { $('start').disabled = false; $('start').textContent = t('start'); }
 
+// Opens the chosen lens if one was picked, otherwise the front or back camera.
+async function openCamera() {
+  const size = { width: { ideal: 640 }, height: { ideal: 480 } };
+  const lens = $('lens').value;
+  if (lens) {
+    try { return await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: lens }, ...size }, audio: false }); } catch (e) { console.error(e); }
+  }
+  return navigator.mediaDevices.getUserMedia({ video: { facingMode: $('facing').value, ...size }, audio: false });
+}
+
+// Lists every camera the phone exposes (names only appear once camera permission has been given).
+async function listLenses() {
+  try {
+    const cams = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'videoinput' && d.deviceId);
+    const sel = $('lens');
+    const chosen = store.get('lens', '');
+    while (sel.options.length > 1) sel.remove(1);
+    cams.forEach((c, i) => {
+      const o = document.createElement('option');
+      o.value = c.deviceId;
+      o.textContent = c.label || `${t('camera')} ${i + 1}`;
+      sel.append(o);
+    });
+    sel.value = cams.some((c) => c.deviceId === chosen) ? chosen : '';
+  } catch (e) { console.error(e); }
+}
+
 function stop() {
   running = false;
   if (stream) { stream.getTracks().forEach((x) => x.stop()); stream = null; }
   if (wakeLock) { try { wakeLock.release(); } catch { /* ignore */ } wakeLock = null; }
   addToday(sessionCount);
+  if (sess && (sessionCount > 0 || sess.rej > 0)) {
+    const kcal = kcalFor(Number($('weight').value), sess.ms, sess.rounds);
+    saveSession({ ...sess, n: sessionCount, kcal: Math.round(kcal * 10) / 10 });
+  }
+  sess = null;
+  renderLastSummary();
   $('live').hidden = true; $('idle').hidden = false;
   resetStart();
   renderProgress();
@@ -245,7 +336,6 @@ function loop(now) {
   } catch (e) { console.error(e); }
   const out = counter.update(lm || null, now, W / H);
 
-  const mirror = $('facing').value === 'user';
   vctx.save();
   if (mirror) { vctx.translate(W, 0); vctx.scale(-1, 1); }
   vctx.drawImage(cam, 0, 0, W, H);
@@ -257,6 +347,13 @@ function loop(now) {
     }
   }
   vctx.restore();
+  if (!out.calibrated) {
+    // a dashed frame showing where the whole body should fit before counting starts
+    vctx.save();
+    vctx.strokeStyle = 'rgba(255,255,255,.85)'; vctx.lineWidth = Math.max(2, W / 240); vctx.setLineDash([W / 40, W / 40]);
+    vctx.strokeRect(W * 0.08, H * 0.05, W * 0.84, H * 0.8);
+    vctx.restore();
+  }
 
   // step guide: the small figure shows the next step, the dots show which steps were recognised
   if (out.calibrated && out.visible) {
@@ -274,6 +371,7 @@ function loop(now) {
     $('hint').textContent = t(out.stage);
   }
   if (out.rejected) {
+    if (sess) sess.rej += 1;
     noticeUntil = now + 2500;
     $('hint').textContent = t('notCounted');
     if (navigator.vibrate) navigator.vibrate([40, 60, 40]);
@@ -285,6 +383,11 @@ function loop(now) {
   } else $('tuneBox').hidden = true;
 
   if (out.counted) {
+    if (sess && out.round) {
+      sess.ms += out.round.ms;
+      sess.rounds += 1;
+      for (let i = 1; i <= 12; i++) if (out.round.seen[i]) sess.steps[i - 1] += 1;
+    }
     sessionCount = out.count;
     $('count').textContent = sessionCount;
     speak(sessionCount);
@@ -307,13 +410,34 @@ for (const id of ['voice', 'optNumbers']) {
   $(id).checked = store.get(id, id === 'voice');
   $(id).addEventListener('change', () => store.set(id, $(id).checked));
 }
-for (const id of ['facing', 'target', 'strictness']) {
+for (const id of ['facing', 'target', 'strictness', 'weight', 'height', 'theme']) {
   $(id).value = store.get(id, $(id).value);
   $(id).addEventListener('change', () => store.set(id, $(id).value));
 }
+$('lens').addEventListener('change', () => store.set('lens', $('lens').value));
+$('weight').addEventListener('input', renderProfile);
+$('height').addEventListener('input', renderProfile);
+
+// appearance: follow the phone, or force light / dark
+function applyTheme() {
+  const v = $('theme').value;
+  if (v === 'system') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme', v);
+  const dark = v === 'dark' || (v === 'system' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+  try { if (window.AndroidBridge && window.AndroidBridge.setDark) window.AndroidBridge.setDark(dark); } catch { /* not in the app */ }
+}
+$('theme').addEventListener('change', applyTheme);
+if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+
+document.querySelectorAll('#period button').forEach((b) => b.addEventListener('click', () => {
+  period = Number(b.dataset.p);
+  document.querySelectorAll('#period button').forEach((x) => x.classList.toggle('active', x === b));
+  renderProgress();
+}));
 
 $('strictness').addEventListener('change', () => { counter.o.mode = $('strictness').value; });
 
+applyTheme();
 applyLang();
-renderProgress();
+renderLastSummary();
 requestAnimationFrame(animLoop);

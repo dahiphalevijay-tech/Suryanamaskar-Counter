@@ -15,6 +15,7 @@
   <section id="tab-practice" class="tab active">
     <div id="idle">
       <div class="today-ring"><span id="todayBig">0</span><small data-t="today">today</small></div>
+      <p class="summary" id="lastSummary" hidden></p>
       <label class="row"><span data-t="target">Target</span>
         <select id="target"><option value="0" data-t="noTarget">No target</option><option>12</option><option>24</option><option>54</option><option>108</option></select>
       </label>
@@ -63,9 +64,16 @@
       <div><b id="sStreak">0</b><span data-t="streak">day streak</span></div>
       <div><b id="sTotal">0</b><span data-t="total">total</span></div>
     </div>
-    <h2 data-t="last14">Last 14 days</h2>
+    <div class="seg" id="period">
+      <button data-p="7" class="active" data-t="week">Week</button>
+      <button data-p="30" data-t="month">Month</button>
+    </div>
     <div class="bars" id="bars"></div>
+    <dl class="insights" id="insights"></dl>
     <h2 data-t="settings">Settings</h2>
+    <label class="row"><span data-t="weight">Weight (kg)</span><input type="number" id="weight" inputmode="decimal" min="20" max="250" step="0.5" placeholder="—"></label>
+    <label class="row"><span data-t="height">Height (cm)</span><input type="number" id="height" inputmode="numeric" min="90" max="230" step="1" placeholder="—"></label>
+    <p class="note" id="bmi"></p>
     <label class="row"><span data-t="language">Language</span>
       <select id="lang"><option value="en">English</option><option value="mr">मराठी</option><option value="hi">हिन्दी</option></select></label>
     <label class="row"><span data-t="strictness">Counting strictness</span>
@@ -73,6 +81,10 @@
     <label class="row"><span data-t="voice">Speak the count</span><input type="checkbox" id="voice" checked></label>
     <label class="row"><span data-t="camera">Camera</span>
       <select id="facing"><option value="user" data-t="front">Front</option><option value="environment" data-t="back">Back</option></select></label>
+    <label class="row"><span data-t="lens">Camera lens</span>
+      <select id="lens"><option value="" data-t="lensAuto">Automatic</option></select></label>
+    <label class="row"><span data-t="theme">Appearance</span>
+      <select id="theme"><option value="system" data-t="themeSystem">Follow phone</option><option value="light" data-t="themeLight">Light</option><option value="dark" data-t="themeDark">Dark</option></select></label>
     <label class="row"><span data-t="showNumbers">Show tuning numbers</span><input type="checkbox" id="optNumbers"></label>
     <p class="private" data-t="privacy">Nothing is recorded. The camera picture never leaves your phone.</p>
   </section>

@@ -235,7 +235,10 @@ export class RepCounter {
     if (tracked === 'done') {
       const seenCount = this.seen.filter(Boolean).length;
       const need = o.mode === 'strict' ? 12 : (o.mode === 'easy' ? o.easySteps : o.standardSteps);
-      if (seenCount >= need && t - this.roundStart >= o.minRepMs) { this.count += 1; counted = true; }
+      if (seenCount >= need && t - this.roundStart >= o.minRepMs) {
+        this.count += 1; counted = true;
+        this.lastRound = { ms: t - this.roundStart, seen: this.seen.slice() };
+      }
       else rejected = true;
       this._newRound(t);
     } else if (tracked === 'abandoned') {
@@ -287,6 +290,7 @@ export class RepCounter {
       count: this.count, stage, visible, counted, rejected, calibrated: this.calibrated,
       h: this.h, k: this.k, feat: this.feat, step: this.step, next: this.step >= 12 ? 1 : this.step + 1,
       seen: this.seen, facing: this.facing, front: this.front,
+      round: counted ? this.lastRound : null,
     };
   }
 }

@@ -1,5 +1,11 @@
 export const STR = {
   en: {
+    week: 'Week', month: 'Month', weight: 'Weight (kg)', height: 'Height (cm)', lens: 'Camera lens', lensAuto: 'Automatic',
+    theme: 'Appearance', themeSystem: 'Follow phone', themeLight: 'Light', themeDark: 'Dark',
+    iTotal: 'Suryanamaskars', iVsPrev: 'Compared with the period before', iDays: 'Days practised', iBest: 'Best day',
+    iPace: 'Average pace', iTime: 'Usual time', iKcal: 'Calories (approx.)', iMissed: 'Most often missed step', iNoMiss: 'None',
+    perRound: 's per round', of: 'of', rounds: 'rounds', noData: 'No practice in this period yet.', addWeight: 'Add your weight in Settings',
+    kcal: 'kcal', approx: 'approx.', min: 'min', lastSession: 'Last session', bmi: 'BMI', sinceUpdate: 'Pace, time and step details are recorded from this version onward.',
     appName: 'Suryanamaskar Counter', practice: 'Practice', learn: 'Learn', progress: 'Progress',
     today: 'today', target: 'Target', noTarget: 'No target', start: 'Start counting', stop: 'Finish',
     tip1: 'Keep the phone upright, 2 to 3 metres away, at about knee height.',
@@ -19,6 +25,12 @@ export const STR = {
     notCounted: 'Not counted: steps were missed',
   },
   mr: {
+    week: 'आठवडा', month: 'महिना', weight: 'वजन (किलो)', height: 'उंची (सेमी)', lens: 'कॅमेरा लेन्स', lensAuto: 'आपोआप',
+    theme: 'दिसणे', themeSystem: 'फोनप्रमाणे', themeLight: 'उजळ', themeDark: 'गडद',
+    iTotal: 'सूर्यनमस्कार', iVsPrev: 'मागील कालावधीच्या तुलनेत', iDays: 'सरावाचे दिवस', iBest: 'सर्वोत्तम दिवस',
+    iPace: 'सरासरी वेग', iTime: 'नेहमीची वेळ', iKcal: 'कॅलरी (अंदाजे)', iMissed: 'सर्वाधिक चुकलेली पायरी', iNoMiss: 'नाही',
+    perRound: 'सेकंद प्रति फेरी', of: 'पैकी', rounds: 'फेऱ्या', noData: 'या कालावधीत अजून सराव नाही.', addWeight: 'सेटिंग्जमध्ये वजन भरा',
+    kcal: 'किलोकॅलरी', approx: 'अंदाजे', min: 'मिनिटे', lastSession: 'मागील सत्र', bmi: 'बीएमआय', sinceUpdate: 'वेग, वेळ आणि पायऱ्यांचा तपशील या आवृत्तीपासून नोंदला जातो.',
     appName: 'सूर्यनमस्कार काउंटर', practice: 'सराव', learn: 'शिका', progress: 'प्रगती',
     today: 'आज', target: 'लक्ष्य', noTarget: 'लक्ष्य नाही', start: 'मोजणी सुरू करा', stop: 'पूर्ण',
     tip1: 'फोन उभा ठेवा, २ ते ३ मीटर दूर, साधारण गुडघ्याच्या उंचीवर.',
@@ -38,6 +50,12 @@ export const STR = {
     notCounted: 'मोजले नाही: काही पायऱ्या चुकल्या',
   },
   hi: {
+    week: 'सप्ताह', month: 'महीना', weight: 'वज़न (किलो)', height: 'ऊँचाई (सेमी)', lens: 'कैमरा लेंस', lensAuto: 'अपने-आप',
+    theme: 'रूप', themeSystem: 'फ़ोन के अनुसार', themeLight: 'हल्का', themeDark: 'गहरा',
+    iTotal: 'सूर्यनमस्कार', iVsPrev: 'पिछली अवधि की तुलना में', iDays: 'अभ्यास के दिन', iBest: 'सबसे अच्छा दिन',
+    iPace: 'औसत गति', iTime: 'सामान्य समय', iKcal: 'कैलोरी (लगभग)', iMissed: 'सबसे ज़्यादा छूटा चरण', iNoMiss: 'कोई नहीं',
+    perRound: 'सेकंड प्रति चक्र', of: 'में से', rounds: 'चक्र', noData: 'इस अवधि में अभी कोई अभ्यास नहीं.', addWeight: 'सेटिंग्स में वज़न भरें',
+    kcal: 'किलोकैलोरी', approx: 'लगभग', min: 'मिनट', lastSession: 'पिछला सत्र', bmi: 'बीएमआई', sinceUpdate: 'गति, समय और चरणों का विवरण इस संस्करण से दर्ज होता है.',
     appName: 'सूर्यनमस्कार काउंटर', practice: 'अभ्यास', learn: 'सीखें', progress: 'प्रगति',
     today: 'आज', target: 'लक्ष्य', noTarget: 'कोई लक्ष्य नहीं', start: 'गिनती शुरू करें', stop: 'समाप्त',
     tip1: 'फ़ोन सीधा रखें, २ से ३ मीटर दूर, लगभग घुटने की ऊँचाई पर.',

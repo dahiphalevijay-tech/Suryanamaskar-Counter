@@ -31,6 +31,7 @@ public class MainActivity extends Activity {
     private TextToSpeech tts;
     private boolean ttsReady;
     private PermissionRequest pendingRequest;
+    private FrameLayout root;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,7 +41,7 @@ public class MainActivity extends Activity {
         web = new WebView(this);
         web.setBackgroundColor(Color.parseColor("#FFF8EE"));
         // The WebView sits inside a padded frame so its content never slides under the status bar.
-        FrameLayout root = new FrameLayout(this);
+        root = new FrameLayout(this);
         root.setBackgroundColor(Color.parseColor("#FFF8EE"));
         root.addView(web, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
@@ -154,6 +155,21 @@ public class MainActivity extends Activity {
 
     /** Called from the web app to speak the count aloud. */
     private class Bridge {
+        /** Matches the area behind the status bar to the app's light or dark appearance. */
+        @JavascriptInterface
+        public void setDark(final boolean dark) {
+            runOnUiThread(() -> {
+                int color = Color.parseColor(dark ? "#1E140F" : "#FFF8EE");
+                root.setBackgroundColor(color);
+                web.setBackgroundColor(color);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && getWindow().getInsetsController() != null) {
+                    int light = android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+                            | android.view.WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS;
+                    getWindow().getInsetsController().setSystemBarsAppearance(dark ? 0 : light, light);
+                }
+            });
+        }
+
         @JavascriptInterface
         public void speak(String text, String languageTag) {
             if (!ttsReady || text == null) return;
