@@ -1,6 +1,6 @@
 name: Store pose model
 
-# Keeps a copy of the pose-detection model on the "model" branch so builds and tests do not depend on an outside download.
+# Keeps copies of the pose-detection models (lite and full) on the "model" branch so builds and tests do not depend on an outside download.
 on:
   push:
     branches: [main]
@@ -18,8 +18,10 @@ jobs:
         run: |
           set -euo pipefail
           mkdir model && cd model
-          curl --fail --location --silent --show-error -o pose_landmarker_lite.task \
-            https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task
+          for m in lite full; do
+            curl --fail --location --silent --show-error -o pose_landmarker_$m.task \
+              https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_$m/float16/latest/pose_landmarker_$m.task
+          done
           git init -q -b model
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
