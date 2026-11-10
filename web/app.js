@@ -221,8 +221,8 @@ function loop(now) {
   vctx.restore();
 
   $('hint').textContent = t(out.stage);
-  if ($('dbg').checked) { $('debug').hidden = false; $('debug').textContent = `h ${out.h.toFixed(2)}\nk ${out.k.toFixed(2)}\n${counter.state}`; }
-  else $('debug').hidden = true;
+  if ($('optNumbers').checked) { $('tuneBox').hidden = false; $('tuneBox').textContent = `h ${out.h.toFixed(2)}\nk ${out.k.toFixed(2)}\n${counter.state}`; }
+  else $('tuneBox').hidden = true;
 
   if (out.counted) {
     sessionCount = out.count;
@@ -243,7 +243,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && run
 // ---------- settings ----------
 $('lang').value = lang;
 $('lang').addEventListener('change', () => { lang = $('lang').value; store.set('lang', lang); applyLang(); });
-for (const id of ['voice', 'dbg']) {
+for (const id of ['voice', 'optNumbers']) {
   $(id).checked = store.get(id, id === 'voice');
   $(id).addEventListener('change', () => store.set(id, $(id).checked));
 }
