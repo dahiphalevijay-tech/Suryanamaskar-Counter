@@ -250,7 +250,7 @@ function loop(now) {
   if ($('optNumbers').checked) {
     const f = out.feat;
     $('tuneBox').hidden = false;
-    $('tuneBox').textContent = `step ${out.step}\nh ${f.h.toFixed(2)}  k ${f.k.toFixed(2)}\nraise ${f.raise.toFixed(2)}\nfeet ${f.sep.toFixed(2)}\nreach ${f.reach.toFixed(2)}`;
+    $('tuneBox').textContent = `step ${out.step} ${out.front ? 'front' : 'side'}\nh ${f.h.toFixed(2)}  k ${f.k.toFixed(2)}\nraise ${f.raise.toFixed(2)}\nfeet ${f.sep.toFixed(2)}\nreach ${f.reach.toFixed(2)}`;
   } else $('tuneBox').hidden = true;
 
   if (out.counted) {

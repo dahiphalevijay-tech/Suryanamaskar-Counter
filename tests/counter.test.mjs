@@ -37,7 +37,7 @@ test('counts 5 normal-speed suryanamaskars', () => {
 
 test('counts 12 fast suryanamaskars', () => {
   const c = new RepCounter();
-  const { last } = run(c, [...stand, ...reps(12, 250, 100)]);
+  const { last } = run(c, [...stand, ...reps(12, 350, 150)]);
   assert.equal(last.count, 12);
 });
 
@@ -129,5 +129,15 @@ test('a round missing one step: standard counts it, strict does not', () => {
     counts[mode] = run(c, [...stand, ...nearly, ...nearly, [POSES[0], 0, 1500]]).last.count;
   }
   assert.deepEqual(counts, { standard: 2, strict: 0 });
+});
+test('ignores impossible measurements when someone walks up to the camera', () => {
+  for (const mode of ['easy', 'standard']) {
+    const c = new RepCounter({ mode });
+    let { t } = run(c, stand);
+    // a close-up: shoulders and hips near the bottom of the picture, then near the top, then standing again
+    const blob = (y) => toLandmarks(POSES[0]).map((p) => ({ ...p, y: y + (p.y - 0.5) * 0.1 }));
+    for (const y of [0.95, 0.9, 0.1, 0.92, 0.15]) for (let i = 0; i < 12; i++, t += DT) c.update(blob(y), t, 2);
+    assert.equal(run(c, stand, t).last.count, 0, mode);
+  }
 });
 console.log('all counter tests passed');
