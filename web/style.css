@@ -1,0 +1,47 @@
+:root { --bg:#FFF8EE; --card:#FFFFFF; --ink:#4A1B0C; --muted:#8A6A58; --sun:#E8731A; --sun2:#F5A623; --line:#F0DFCB; }
+@media (prefers-color-scheme: dark) { :root { --bg:#1E140F; --card:#2A1C15; --ink:#FBEBDD; --muted:#C2A592; --line:#3D2A20; } }
+* { box-sizing: border-box; }
+html, body { margin:0; height:100%; }
+body { background:var(--bg); color:var(--ink); font:16px/1.5 system-ui, "Noto Sans Devanagari", sans-serif; display:flex; flex-direction:column; }
+header { padding:14px 18px 6px; }
+h1 { margin:0; font-size:20px; font-weight:700; color:var(--sun); }
+h2 { font-size:15px; margin:22px 0 8px; color:var(--muted); font-weight:600; }
+main { flex:1; overflow-y:auto; padding:8px 18px 20px; }
+.tab { display:none; max-width:520px; margin:0 auto; }
+.tab.active { display:block; }
+nav { display:flex; border-top:1px solid var(--line); background:var(--card); padding-bottom:env(safe-area-inset-bottom); }
+nav button { border-radius:0; flex:1; padding:14px 4px; background:none; border:0; color:var(--muted); font:inherit; font-weight:600; }
+nav button.active { color:var(--sun); box-shadow:inset 0 3px 0 var(--sun); }
+button { font:inherit; border-radius:14px; border:1px solid var(--line); background:var(--card); color:var(--ink); padding:12px 18px; min-height:48px; }
+button.primary { background:var(--sun); border-color:var(--sun); color:#fff; font-weight:700; flex:1; }
+button:active { transform:scale(.98); }
+select { font:inherit; padding:8px 10px; border-radius:10px; border:1px solid var(--line); background:var(--card); color:var(--ink); }
+input[type=checkbox] { width:22px; height:22px; accent-color:var(--sun); }
+.row { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--line); }
+.today-ring { width:190px; height:190px; margin:14px auto 18px; border-radius:50%; border:10px solid var(--sun2); display:flex; flex-direction:column; align-items:center; justify-content:center; background:var(--card); }
+.today-ring span { font-size:64px; font-weight:800; line-height:1; color:var(--sun); }
+.today-ring small { color:var(--muted); }
+#start { width:100%; margin:16px 0 6px; font-size:18px; }
+.tips { color:var(--muted); padding-left:20px; font-size:14px; }
+.private { color:var(--muted); font-size:13px; text-align:center; margin-top:14px; }
+.stage-wrap { position:relative; background:#000; border-radius:16px; overflow:hidden; }
+#view { display:block; width:100%; max-height:62vh; object-fit:contain; }
+.count { position:absolute; top:8px; right:12px; font-size:72px; font-weight:800; line-height:1; color:#fff; text-shadow:0 2px 8px #000; }
+.hint { position:absolute; left:0; right:0; bottom:0; padding:10px 12px; background:rgba(0,0,0,.6); color:#fff; text-align:center; font-weight:600; }
+.debug { position:absolute; top:8px; left:10px; color:#9f9; font:13px/1.3 monospace; text-shadow:0 1px 2px #000; white-space:pre; }
+.controls { display:flex; gap:10px; margin:12px 0; }
+.error { color:#c0392b; background:var(--card); border:1px solid #c0392b; border-radius:12px; padding:10px 12px; }
+#anim { width:100%; height:auto; background:var(--card); border-radius:16px; border:1px solid var(--line); }
+.pose-name { display:flex; align-items:center; gap:12px; margin:12px 0 4px; min-height:56px; }
+.pose-name > span { width:40px; height:40px; flex:none; border-radius:50%; background:var(--sun); color:#fff; font-weight:800; display:flex; align-items:center; justify-content:center; }
+.pose-name div { flex:1; display:flex; flex-direction:column; }
+.pose-name strong { font-size:18px; }
+.pose-name small { color:var(--muted); }
+.pose-name em { font-style:normal; font-weight:600; color:var(--sun); }
+.stats { display:flex; gap:10px; }
+.stats div { flex:1; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px 6px; text-align:center; }
+.stats b { display:block; font-size:28px; color:var(--sun); }
+.stats span { font-size:13px; color:var(--muted); }
+.bars { display:flex; align-items:flex-end; gap:4px; height:120px; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:10px 8px 6px; }
+.bars div { flex:1; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; height:100%; font-size:11px; color:var(--muted); }
+.bars i { display:block; width:100%; background:var(--sun2); border-radius:4px 4px 0 0; min-height:2px; }

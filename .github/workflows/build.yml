@@ -1,0 +1,97 @@
+name: Build app
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  MEDIAPIPE_VERSION: 1.2.2
+  MODEL_URL: https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task
+
+jobs:
+  web:
+    name: Test and prepare the web app
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run counting tests
+        run: node tests/counter.test.mjs
+      - name: Fetch the pose detector
+        run: |
+          set -euo pipefail
+          mkdir -p web/vendor/tasks-vision tmp
+          cd tmp
+          npm pack "@mediapipe/tasks-vision@${MEDIAPIPE_VERSION}"
+          tar xzf mediapipe-tasks-vision-*.tgz
+          cp package/vision_bundle.mjs ../web/vendor/tasks-vision/vision_bundle.js
+          cp -r package/wasm ../web/vendor/tasks-vision/wasm
+          curl --fail --location --silent --show-error -o ../web/vendor/pose_landmarker_lite.task "$MODEL_URL"
+          test "$(stat -c %s ../web/vendor/pose_landmarker_lite.task)" -gt 1000000
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web
+          path: web
+
+  test-link:
+    name: Publish the test link
+    needs: web
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: web
+          path: web
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+      - id: deploy
+        uses: actions/deploy-pages@v4
+
+  android:
+    name: Build the Android app
+    needs: web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: web
+          path: android/app/src/main/assets/web
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.11.1
+      - name: Build test APK
+        run: gradle -p android assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: suryanamaskar-counter-test-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+      - name: Publish APK download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk suryanamaskar-counter-test.apk
+          gh release delete test-build --yes --cleanup-tag --repo "$GITHUB_REPOSITORY" || true
+          gh release create test-build suryanamaskar-counter-test.apk --repo "$GITHUB_REPOSITORY" \
+            --title "Test build" --notes "Latest test build for trying the app on your own phone. Not the Play Store version." --prerelease

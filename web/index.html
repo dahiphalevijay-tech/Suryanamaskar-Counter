@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#E8731A">
+<title>Suryanamaskar Counter</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header><h1 data-t="appName">Suryanamaskar Counter</h1></header>
+
+<main>
+  <section id="tab-practice" class="tab active">
+    <div id="idle">
+      <div class="today-ring"><span id="todayBig">0</span><small data-t="today">today</small></div>
+      <label class="row"><span data-t="target">Target</span>
+        <select id="target"><option value="0" data-t="noTarget">No target</option><option>12</option><option>24</option><option>54</option><option>108</option></select>
+      </label>
+      <button id="start" class="primary" data-t="start">Start counting</button>
+      <ol class="tips">
+        <li data-t="tip1">Keep the phone upright, 2 to 3 metres away, at about knee height.</li>
+        <li data-t="tip2">Stand side-on so the camera sees you from the side, head to feet.</li>
+        <li data-t="tip3">Stand still for a second, then begin.</li>
+      </ol>
+      <p class="private" data-t="privacy">Nothing is recorded. The camera picture never leaves your phone.</p>
+    </div>
+    <div id="live" hidden>
+      <div class="stage-wrap">
+        <canvas id="view"></canvas>
+        <div class="count" id="count">0</div>
+        <div class="hint" id="hint"></div>
+        <div class="debug" id="debug" hidden></div>
+      </div>
+      <div class="controls">
+        <button id="minus" aria-label="minus one">−1</button>
+        <button id="stop" class="primary" data-t="stop">Finish</button>
+        <button id="plus" aria-label="plus one">+1</button>
+      </div>
+    </div>
+    <p id="error" class="error" hidden></p>
+  </section>
+
+  <section id="tab-learn" class="tab">
+    <canvas id="anim" width="640" height="420"></canvas>
+    <div class="pose-name"><span id="stepNo">1</span><div><strong id="poseLocal"></strong><small id="poseSa"></small></div><em id="breath"></em></div>
+    <div class="controls">
+      <button id="prev" aria-label="previous step">‹</button>
+      <button id="play" class="primary" data-t="pause">Pause</button>
+      <button id="next" aria-label="next step">›</button>
+    </div>
+    <label class="row"><span data-t="speed">Speed</span>
+      <select id="speed"><option value="0.5" data-t="slow">Slow</option><option value="1" selected data-t="normal">Normal</option><option value="1.8" data-t="fast">Fast</option></select>
+    </label>
+  </section>
+
+  <section id="tab-progress" class="tab">
+    <div class="stats">
+      <div><b id="sToday">0</b><span data-t="today">today</span></div>
+      <div><b id="sStreak">0</b><span data-t="streak">day streak</span></div>
+      <div><b id="sTotal">0</b><span data-t="total">total</span></div>
+    </div>
+    <h2 data-t="last14">Last 14 days</h2>
+    <div class="bars" id="bars"></div>
+    <h2 data-t="settings">Settings</h2>
+    <label class="row"><span data-t="language">Language</span>
+      <select id="lang"><option value="en">English</option><option value="mr">मराठी</option><option value="hi">हिन्दी</option></select></label>
+    <label class="row"><span data-t="voice">Speak the count</span><input type="checkbox" id="voice" checked></label>
+    <label class="row"><span data-t="camera">Camera</span>
+      <select id="facing"><option value="user" data-t="front">Front</option><option value="environment" data-t="back">Back</option></select></label>
+    <label class="row"><span data-t="showNumbers">Show tuning numbers</span><input type="checkbox" id="dbg"></label>
+    <p class="private" data-t="privacy">Nothing is recorded. The camera picture never leaves your phone.</p>
+  </section>
+</main>
+
+<nav>
+  <button data-tab="practice" class="active" data-t="practice">Practice</button>
+  <button data-tab="learn" data-t="learn">Learn</button>
+  <button data-tab="progress" data-t="progress">Progress</button>
+</nav>
+<video id="cam" playsinline muted hidden></video>
+<script type="module" src="app.js"></script>
+</body>
+</html>
