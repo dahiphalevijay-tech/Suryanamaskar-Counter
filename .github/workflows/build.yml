@@ -16,7 +16,7 @@ concurrency:
 
 env:
   MEDIAPIPE_VERSION: 1.2.2
-  MODEL_URL: https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task
+  MODEL_BASE: https://storage.googleapis.com/mediapipe-models/pose_landmarker
 
 jobs:
   web:
@@ -38,8 +38,10 @@ jobs:
           tar xzf mediapipe-tasks-vision-*.tgz
           cp package/vision_bundle.mjs ../web/vendor/tasks-vision/vision_bundle.js
           cp -r package/wasm ../web/vendor/tasks-vision/wasm
-          curl --fail --location --silent --show-error -o ../web/vendor/pose_landmarker_lite.task "$MODEL_URL"
-          test "$(stat -c %s ../web/vendor/pose_landmarker_lite.task)" -gt 1000000
+          for m in lite full; do
+            curl --fail --location --silent --show-error -o ../web/vendor/pose_landmarker_$m.task "$MODEL_BASE/pose_landmarker_$m/float16/latest/pose_landmarker_$m.task"
+            test "$(stat -c %s ../web/vendor/pose_landmarker_$m.task)" -gt 1000000
+          done
       - uses: actions/upload-artifact@v4
         with:
           name: web

@@ -116,6 +116,8 @@ export class RepCounter {
       if (j === 12 && !FLOOR_STEPS.some((x) => this.seen[x])) continue;
       // the way back up (steps 9 onward) only opens once the lowest poses have been reached
       if (j >= 9 && !(this.seen[6] || this.seen[7] || this.seen[8])) continue;
+      // mountain pose comes after the floor poses; before them, the same shape is just a deep forward bend
+      if (j === 8 && !(this.seen[5] || this.seen[6] || this.seen[7])) continue;
       if (STEP_RULES[j - 1](f)) { hit = j; break; }
     }
     if (hit) {

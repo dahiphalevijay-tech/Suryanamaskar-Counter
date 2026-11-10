@@ -147,15 +147,35 @@ function speak(text) {
 }
 function showError(msg) { const e = $('error'); e.textContent = msg; e.hidden = !msg; }
 
-async function loadModel() {
-  if (landmarker) return;
-  const vision = await import('./vendor/tasks-vision/vision_bundle.js');
-  const files = await vision.FilesetResolver.forVisionTasks('./vendor/tasks-vision/wasm');
-  const make = (delegate) => vision.PoseLandmarker.createFromOptions(files, {
-    baseOptions: { modelAssetPath: './vendor/pose_landmarker_lite.task', delegate },
+// The "full" pose model keeps hold of a person better in head-down poses; "lite" is faster.
+// Start with full and drop to lite if this phone turns out to be too slow for it.
+let vision = null;
+let visionFiles = null;
+let modelKind = '';
+let inferMs = 0;
+let inferN = 0;
+let switching = false;
+const SLOW_MS = 85;
+
+async function loadModel(kind = 'full') {
+  if (landmarker && modelKind === kind) return;
+  if (!vision) {
+    vision = await import('./vendor/tasks-vision/vision_bundle.js');
+    visionFiles = await vision.FilesetResolver.forVisionTasks('./vendor/tasks-vision/wasm');
+  }
+  const make = (delegate) => vision.PoseLandmarker.createFromOptions(visionFiles, {
+    baseOptions: { modelAssetPath: `./vendor/pose_landmarker_${kind}.task`, delegate },
     runningMode: 'VIDEO', numPoses: 1,
+    // lower than the defaults so the person is not dropped when the face is hidden (forward bend, mountain)
+    minPoseDetectionConfidence: 0.3, minPosePresenceConfidence: 0.3, minTrackingConfidence: 0.3,
   });
-  try { landmarker = await make('GPU'); } catch { landmarker = await make('CPU'); }
+  let next;
+  try { next = await make('GPU'); } catch { next = await make('CPU'); }
+  const old = landmarker;
+  landmarker = next;
+  modelKind = kind;
+  inferMs = 0; inferN = 0;
+  if (old) { try { old.close(); } catch { /* ignore */ } }
 }
 
 async function start() {
@@ -211,7 +231,18 @@ function loop(now) {
   if (!W || !H) return;
   if (view.width !== W) { view.width = W; view.height = H; }
   let lm = null;
-  try { const res = landmarker.detectForVideo(cam, now); lm = res.landmarks && res.landmarks[0]; } catch (e) { console.error(e); }
+  try {
+    const t0 = performance.now();
+    const res = landmarker.detectForVideo(cam, now);
+    lm = res.landmarks && res.landmarks[0];
+    const dt = performance.now() - t0;
+    inferN += 1;
+    if (inferN > 5) inferMs += (dt - inferMs) / Math.min(inferN - 5, 30);
+    if (modelKind === 'full' && inferN > 45 && inferMs > SLOW_MS && !switching) {
+      switching = true;
+      loadModel('lite').catch((e) => console.error(e)).finally(() => { switching = false; });
+    }
+  } catch (e) { console.error(e); }
   const out = counter.update(lm || null, now, W / H);
 
   const mirror = $('facing').value === 'user';
@@ -250,7 +281,7 @@ function loop(now) {
   if ($('optNumbers').checked) {
     const f = out.feat;
     $('tuneBox').hidden = false;
-    $('tuneBox').textContent = `step ${out.step} ${out.front ? 'front' : 'side'}\nh ${f.h.toFixed(2)}  k ${f.k.toFixed(2)}\nraise ${f.raise.toFixed(2)}\nfeet ${f.sep.toFixed(2)}\nreach ${f.reach.toFixed(2)}`;
+    $('tuneBox').textContent = `${modelKind} ${inferMs.toFixed(0)}ms\nstep ${out.step} ${out.front ? 'front' : 'side'}\nh ${f.h.toFixed(2)}  k ${f.k.toFixed(2)}\nraise ${f.raise.toFixed(2)}\nfeet ${f.sep.toFixed(2)}\nreach ${f.reach.toFixed(2)}`;
   } else $('tuneBox').hidden = true;
 
   if (out.counted) {
