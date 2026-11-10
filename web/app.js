@@ -160,14 +160,14 @@ async function start() {
   try {
     await loadModel();
   } catch (e) {
-    console.error(e); showError(t('modelError')); resetStart(); return;
+    console.error(e); showError(`${t('modelError')}\n[${e && (e.message || e)}]`); resetStart(); return;
   }
   try {
     stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: $('facing').value, width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
     cam.srcObject = stream;
     await cam.play();
   } catch (e) {
-    console.error(e); showError(t('camError')); resetStart(); return;
+    console.error(e); showError(`${t('camError')}\n[${e && (e.name || '')} ${e && (e.message || e)}]`); resetStart(); return;
   }
   try { if (navigator.wakeLock) wakeLock = await navigator.wakeLock.request('screen'); } catch { /* optional */ }
   counter.reset();

@@ -30,7 +30,7 @@ input[type=checkbox] { width:22px; height:22px; accent-color:var(--sun); }
 .hint { position:absolute; left:0; right:0; bottom:0; padding:10px 12px; background:rgba(0,0,0,.6); color:#fff; text-align:center; font-weight:600; }
 .debug { position:absolute; top:8px; left:10px; color:#9f9; font:13px/1.3 monospace; text-shadow:0 1px 2px #000; white-space:pre; }
 .controls { display:flex; gap:10px; margin:12px 0; }
-.error { color:#c0392b; background:var(--card); border:1px solid #c0392b; border-radius:12px; padding:10px 12px; }
+.error { white-space:pre-wrap; word-break:break-word; color:#c0392b; background:var(--card); border:1px solid #c0392b; border-radius:12px; padding:10px 12px; }
 #anim { width:100%; height:auto; background:var(--card); border-radius:16px; border:1px solid var(--line); }
 .pose-name { display:flex; align-items:center; gap:12px; margin:12px 0 4px; min-height:56px; }
 .pose-name > span { width:40px; height:40px; flex:none; border-radius:50%; background:var(--sun); color:#fff; font-weight:800; display:flex; align-items:center; justify-content:center; }
