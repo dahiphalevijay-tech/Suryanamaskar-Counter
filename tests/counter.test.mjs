@@ -10,8 +10,8 @@ const FPS = 15, DT = 1000 / FPS;
 function run(counter, script, t0 = 0, noise = 0.012) {
   let t = t0, prev = script[0][0], last;
   for (const [pose, moveMs, holdMs] of script) {
-    for (let e = 0; e < moveMs; e += DT, t += DT) last = counter.update(toLandmarks(lerpPose(prev, pose, e / moveMs), noise, rnd), t);
-    for (let e = 0; e < holdMs; e += DT, t += DT) last = counter.update(toLandmarks(pose, noise, rnd), t);
+    for (let e = 0; e < moveMs; e += DT, t += DT) last = counter.update(toLandmarks(lerpPose(prev, pose, e / moveMs), noise, rnd), t, 2);
+    for (let e = 0; e < holdMs; e += DT, t += DT) last = counter.update(toLandmarks(pose, noise, rnd), t, 2);
     prev = pose;
   }
   return { t, last };
@@ -80,5 +80,54 @@ test('keeps counting after the person is briefly not detected', () => {
 test('asks the person to step back when too close or too small', () => {
   const c = new RepCounter({ minBody: 0.9 });
   assert.equal(run(c, stand).last.stage, 'far');
+});
+
+for (const mode of ['easy', 'standard', 'strict']) {
+  test(`[${mode}] counts 5 complete suryanamaskars`, () => {
+    const c = new RepCounter({ mode });
+    assert.equal(run(c, [...stand, ...reps(5, 600, 400)]).last.count, 5);
+  });
+  test(`[${mode}] does not count squats or forward bends`, () => {
+    const c = new RepCounter({ mode });
+    const up = POSES[0];
+    const squat = { ...up, head: [4, -50], sh: [3, -40], el: [14, -38], wr: [24, -40], hip: [-10, -14], knA: [8, -16], knB: [8, -16] };
+    const s = [...stand];
+    for (let i = 0; i < 5; i++) s.push([squat, 500, 300], [up, 500, 300], [POSES[1], 400, 300], [POSES[2], 600, 500], [up, 600, 400]);
+    assert.equal(run(c, s).last.count, 0);
+  });
+}
+
+test('follows the 12 steps in order', () => {
+  const c = new RepCounter({ mode: 'strict' });
+  let { t } = run(c, stand);
+  const order = [];
+  for (const p of POSES.slice(1)) {
+    const r = run(c, [[p, 600, 400]], t); t = r.t;
+    order.push(r.last.counted || r.last.step === 1 ? 12 : r.last.step);
+  }
+  assert.deepEqual(order.slice(0, 10), [2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+  assert.equal(c.count, 1);
+});
+
+// a lazy round: no raised arms, no eight-point, no mountain, second lunge skipped
+const lazy = [0, 2, 3, 4, 6, 9, 11].map((i) => [POSES[i], 600, 500]);
+test('a round with steps missing: easy counts it, standard and strict do not', () => {
+  const counts = {};
+  for (const mode of ['easy', 'standard', 'strict']) {
+    const c = new RepCounter({ mode });
+    counts[mode] = run(c, [...stand, ...lazy, ...lazy, [POSES[0], 0, 1500]]).last.count;
+  }
+  assert.deepEqual(counts, { easy: 2, standard: 0, strict: 0 });
+});
+
+// skips only the eight-point step
+const nearly = [0, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11].map((i) => [POSES[i], 600, 400]);
+test('a round missing one step: standard counts it, strict does not', () => {
+  const counts = {};
+  for (const mode of ['standard', 'strict']) {
+    const c = new RepCounter({ mode });
+    counts[mode] = run(c, [...stand, ...nearly, ...nearly, [POSES[0], 0, 1500]]).last.count;
+  }
+  assert.deepEqual(counts, { standard: 2, strict: 0 });
 });
 console.log('all counter tests passed');

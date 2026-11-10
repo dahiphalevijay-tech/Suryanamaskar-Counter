@@ -31,8 +31,10 @@
         <canvas id="view"></canvas>
         <div class="count" id="count">0</div>
         <div class="hint" id="hint"></div>
-        <div class="debug" id="tuneBox" hidden></div>
+        <div id="tuneBox" hidden></div>
+        <canvas id="guide" width="240" height="210" hidden></canvas>
       </div>
+      <div class="dots" id="dots"></div>
       <div class="controls">
         <button id="minus" aria-label="minus one">−1</button>
         <button id="stop" class="primary" data-t="stop">Finish</button>
@@ -66,6 +68,8 @@
     <h2 data-t="settings">Settings</h2>
     <label class="row"><span data-t="language">Language</span>
       <select id="lang"><option value="en">English</option><option value="mr">मराठी</option><option value="hi">हिन्दी</option></select></label>
+    <label class="row"><span data-t="strictness">Counting strictness</span>
+      <select id="strictness"><option value="easy" data-t="easy">Easy</option><option value="standard" selected data-t="standard">Standard</option><option value="strict" data-t="strict">Strict</option></select></label>
     <label class="row"><span data-t="voice">Speak the count</span><input type="checkbox" id="voice" checked></label>
     <label class="row"><span data-t="camera">Camera</span>
       <select id="facing"><option value="user" data-t="front">Front</option><option value="environment" data-t="back">Back</option></select></label>

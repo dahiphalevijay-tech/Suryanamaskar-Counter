@@ -127,6 +127,11 @@ let running = false;
 let sessionCount = 0;
 let lastDetect = 0;
 let wakeLock = null;
+let noticeUntil = 0;
+const guide = $('guide');
+const gctx = guide.getContext('2d');
+const dots = $('dots');
+for (let i = 0; i < 12; i++) dots.append(document.createElement('span'));
 const LINKS = [[11, 13], [13, 15], [12, 14], [14, 16], [11, 12], [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28], [27, 31], [28, 32]];
 
 function speak(text) {
@@ -170,8 +175,10 @@ async function start() {
     console.error(e); showError(`${t('camError')}\n[${e && (e.name || '')} ${e && (e.message || e)}]`); resetStart(); return;
   }
   try { if (navigator.wakeLock) wakeLock = await navigator.wakeLock.request('screen'); } catch { /* optional */ }
+  counter.o.mode = $('strictness').value;
   counter.reset();
   sessionCount = 0;
+  guide.hidden = true;
   $('count').textContent = '0';
   $('idle').hidden = true; $('live').hidden = false;
   running = true;
@@ -220,9 +227,31 @@ function loop(now) {
   }
   vctx.restore();
 
-  $('hint').textContent = t(out.stage);
-  if ($('optNumbers').checked) { $('tuneBox').hidden = false; $('tuneBox').textContent = `h ${out.h.toFixed(2)}\nk ${out.k.toFixed(2)}\n${counter.state}`; }
-  else $('tuneBox').hidden = true;
+  // step guide: the small figure shows the next step, the dots show which steps were recognised
+  if (out.calibrated && out.visible) {
+    const target = out.next;
+    const info = POSE_INFO[target - 1];
+    const phase = (now % 1700) / 1700;
+    drawFigure(gctx, lerpPose(POSES[out.step - 1], POSES[target - 1], phase / 0.55), guide.width, guide.height);
+    guide.hidden = false;
+    const dir = (mirror ? -1 : 1) * (out.facing || 1);
+    guide.style.transform = dir < 0 ? 'scaleX(-1)' : '';
+    if (now > noticeUntil) $('hint').textContent = `${target}. ${lang === 'en' ? info.en : info.dev} · ${t(info.breath)}`;
+    [...dots.children].forEach((d, i) => { d.className = out.seen[i + 1] ? 'on' : (i + 1 === target ? 'next' : ''); });
+  } else {
+    guide.hidden = true;
+    $('hint').textContent = t(out.stage);
+  }
+  if (out.rejected) {
+    noticeUntil = now + 2500;
+    $('hint').textContent = t('notCounted');
+    if (navigator.vibrate) navigator.vibrate([40, 60, 40]);
+  }
+  if ($('optNumbers').checked) {
+    const f = out.feat;
+    $('tuneBox').hidden = false;
+    $('tuneBox').textContent = `step ${out.step}\nh ${f.h.toFixed(2)}  k ${f.k.toFixed(2)}\nraise ${f.raise.toFixed(2)}\nfeet ${f.sep.toFixed(2)}\nreach ${f.reach.toFixed(2)}`;
+  } else $('tuneBox').hidden = true;
 
   if (out.counted) {
     sessionCount = out.count;
@@ -230,7 +259,7 @@ function loop(now) {
     speak(sessionCount);
     if (navigator.vibrate) navigator.vibrate(60);
     const target = Number($('target').value);
-    if (target && sessionCount === target) { $('hint').textContent = t('done'); speak(t('done')); }
+    if (target && sessionCount === target) { noticeUntil = now + 4000; $('hint').textContent = t('done'); speak(t('done')); }
   }
 }
 
@@ -247,10 +276,12 @@ for (const id of ['voice', 'optNumbers']) {
   $(id).checked = store.get(id, id === 'voice');
   $(id).addEventListener('change', () => store.set(id, $(id).checked));
 }
-for (const id of ['facing', 'target']) {
+for (const id of ['facing', 'target', 'strictness']) {
   $(id).value = store.get(id, $(id).value);
   $(id).addEventListener('change', () => store.set(id, $(id).value));
 }
+
+$('strictness').addEventListener('change', () => { counter.o.mode = $('strictness').value; });
 
 applyLang();
 renderProgress();

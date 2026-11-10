@@ -15,6 +15,8 @@ export const STR = {
     done: 'Target reached!', in: 'Breathe in', out: 'Breathe out', hold: 'Hold',
     camError: 'Could not open the camera. Allow camera permission and try again.',
     modelError: 'Could not load the pose detector.',
+    strictness: 'Counting strictness', easy: 'Easy: down and up', standard: 'Standard: 8 of 12 steps', strict: 'Strict: all 12 steps',
+    notCounted: 'Not counted: steps were missed',
   },
   mr: {
     appName: 'सूर्यनमस्कार काउंटर', practice: 'सराव', learn: 'शिका', progress: 'प्रगती',
@@ -32,6 +34,8 @@ export const STR = {
     done: 'लक्ष्य पूर्ण!', in: 'श्वास घ्या', out: 'श्वास सोडा', hold: 'श्वास रोखा',
     camError: 'कॅमेरा उघडता आला नाही. कॅमेऱ्याची परवानगी द्या आणि पुन्हा प्रयत्न करा.',
     modelError: 'पोज डिटेक्टर लोड करता आला नाही.',
+    strictness: 'मोजणीची काटेकोरता', easy: 'सोपे: खाली आणि वर', standard: 'सामान्य: १२ पैकी ८ पायऱ्या', strict: 'काटेकोर: सर्व १२ पायऱ्या',
+    notCounted: 'मोजले नाही: काही पायऱ्या चुकल्या',
   },
   hi: {
     appName: 'सूर्यनमस्कार काउंटर', practice: 'अभ्यास', learn: 'सीखें', progress: 'प्रगति',
@@ -49,6 +53,8 @@ export const STR = {
     done: 'लक्ष्य पूरा!', in: 'साँस लें', out: 'साँस छोड़ें', hold: 'साँस रोकें',
     camError: 'कैमरा नहीं खुल सका. कैमरे की अनुमति दें और फिर कोशिश करें.',
     modelError: 'पोज़ डिटेक्टर लोड नहीं हो सका.',
+    strictness: 'गिनती की सख़्ती', easy: 'आसान: नीचे और ऊपर', standard: 'सामान्य: १२ में से ८ चरण', strict: 'सख़्त: सभी १२ चरण',
+    notCounted: 'नहीं गिना: कुछ चरण छूट गए',
   },
 };
 export const SPEECH_LANG = { en: 'en-IN', mr: 'mr-IN', hi: 'hi-IN' };
