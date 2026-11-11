@@ -133,6 +133,7 @@ export class RepCounter {
     this.widthAvg = stance.width;
     this.front = stance.width > 0.15;
     this.calibrated = true;
+    this.calibSeq = (this.calibSeq || 0) + 1;   // lets the app notice each fresh calibration
     this.state = 'up';
     this.leftUpAt = null;
     this.condSince = { up: null, floor: null };
@@ -344,7 +345,7 @@ export class RepCounter {
       h: this.h, k: this.k, feat: this.feat, step: this.step,
       next: this.step >= 12 ? 1 : TRACKED_STEPS[TRACKED_STEPS.indexOf(this.step) + 1],
       seen: this.seen, facing: this.facing, front: this.front,
-      round: counted ? this.lastRound : null,
+      round: counted ? this.lastRound : null, calibSeq: this.calibSeq || 0,
     };
   }
 }

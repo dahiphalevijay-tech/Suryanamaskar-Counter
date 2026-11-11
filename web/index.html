@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#E8731A">
-<title>Suryanamaskar Counter</title>
+<title>Suryanamaskar</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header><h1 data-t="appName">Suryanamaskar Counter</h1></header>
+<header><h1 data-t="appName">Suryanamaskar</h1></header>
 
 <main>
   <section id="tab-practice" class="tab active">
@@ -19,11 +19,11 @@
       <label class="row"><span data-t="target">Target</span>
         <select id="target"><option value="0" data-t="noTarget">No target</option><option>12</option><option>24</option><option>54</option><option>108</option></select>
       </label>
-      <button id="start" class="primary" data-t="start">Start counting</button>
+      <button id="start" class="primary" data-t="start">Start practice</button>
       <ol class="tips">
         <li data-t="tip1">Keep the phone upright, 2 to 3 metres away, at about knee height.</li>
         <li data-t="tip2">Stand side-on, so the camera sees you from the side, head to feet.</li>
-        <li data-t="tip3">Stand still for a second, then begin.</li>
+        <li data-t="tip3">Tap Start, walk to your mat and stand still. The voice tells you when to begin.</li>
       </ol>
       <p class="private" data-t="privacy">Nothing is recorded. The camera picture never leaves your phone.</p>
     </div>
@@ -40,6 +40,15 @@
         <button id="minus" aria-label="minus one">−1</button>
         <button id="stop" class="primary" data-t="stop">Finish</button>
         <button id="plus" aria-label="plus one">+1</button>
+      </div>
+    </div>
+    <div id="done" hidden>
+      <p class="done-title" data-t="wellDone">Well done</p>
+      <div class="today-ring"><span id="doneCount">0</span><small data-t="iTotal">Suryanamaskars</small></div>
+      <dl class="insights" id="doneStats"></dl>
+      <div class="controls">
+        <button id="shareBtn" class="primary" data-t="share">Share</button>
+        <button id="doneClose" data-t="close">Done</button>
       </div>
     </div>
     <p id="error" class="error" hidden></p>
@@ -76,9 +85,12 @@
     <p class="note" id="bmi"></p>
     <label class="row"><span data-t="language">Language</span>
       <select id="lang"><option value="en">English</option><option value="mr">मराठी</option><option value="hi">हिन्दी</option></select></label>
-    <label class="row"><span data-t="strictness">Counting strictness</span>
+    <label class="row"><span data-t="strictness">Step checking</span>
       <select id="strictness"><option value="easy" data-t="easy">Easy</option><option value="standard" selected data-t="standard">Standard</option><option value="strict" data-t="strict">Strict</option></select></label>
-    <label class="row"><span data-t="voice">Speak the count</span><input type="checkbox" id="voice" checked></label>
+    <label class="row"><span data-t="voiceMode">Voice</span>
+      <select id="voiceMode"><option value="full" selected data-t="vFull">Poses, breathing and count</option><option value="count" data-t="vCount">Count only</option><option value="off" data-t="vOff">Off</option></select></label>
+    <label class="row"><span data-t="mantra">Surya mantra each round</span><input type="checkbox" id="mantra"></label>
+    <label class="row"><span data-t="autoFinish">Finish by itself when I walk away</span><input type="checkbox" id="autoFinish" checked></label>
     <label class="row"><span data-t="camera">Camera</span>
       <select id="facing"><option value="user" data-t="front">Front</option><option value="environment" data-t="back">Back</option></select></label>
     <label class="row"><span data-t="lens">Camera lens</span>
@@ -86,6 +98,7 @@
     <label class="row"><span data-t="theme">Appearance</span>
       <select id="theme"><option value="system" data-t="themeSystem">Follow phone</option><option value="light" data-t="themeLight">Light</option><option value="dark" data-t="themeDark">Dark</option></select></label>
     <label class="row"><span data-t="showNumbers">Show tuning numbers</span><input type="checkbox" id="optNumbers"></label>
+    <button id="howTo" class="wide-btn" data-t="howTo">How to use</button>
     <p class="private" data-t="privacy">Nothing is recorded. The camera picture never leaves your phone.</p>
   </section>
 </main>
@@ -95,6 +108,19 @@
   <button data-tab="learn" data-t="learn">Learn</button>
   <button data-tab="progress" data-t="progress">Progress</button>
 </nav>
+<div id="intro" hidden>
+  <canvas id="introArt" width="640" height="460"></canvas>
+  <h2 id="introTitle"></h2>
+  <p id="introText"></p>
+  <label class="row" id="introLangRow"><span data-t="language">Language</span>
+    <select id="introLang"><option value="en">English</option><option value="mr">मराठी</option><option value="hi">हिन्दी</option></select></label>
+  <div class="intro-dots" id="introDots"></div>
+  <div class="controls">
+    <button id="introSkip" data-t="skip">Skip</button>
+    <button id="introNext" class="primary" data-t="next">Next</button>
+  </div>
+</div>
+<canvas id="shareCard" width="1080" height="1920" hidden></canvas>
 <video id="cam" playsinline muted hidden></video>
 <script type="module" src="app.js"></script>
 </body>

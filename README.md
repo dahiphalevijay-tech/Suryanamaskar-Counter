@@ -1,6 +1,6 @@
-# Suryanamaskar Counter
+# Suryanamaskar
 
-A camera-based suryanamaskar counter. The phone watches you through the camera, detects your body position on the device, and counts each full 12-step suryanamaskar aloud. Nothing is recorded or uploaded.
+A voice-guided suryanamaskar app. The phone watches you from the side through the camera, names each pose, reminds you to breathe, and counts each round aloud. Nothing is recorded or uploaded.
 
 - **Practice**: camera counter with voice count, target and manual +1 / −1 correction
 - **Learn**: animated guide to the 12 poses with names and breathing cues

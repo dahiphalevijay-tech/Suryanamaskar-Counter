@@ -2,6 +2,10 @@ package app.suryacount;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.ClipData;
+import android.content.Intent;
+import android.net.Uri;
+import android.util.Base64;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.Build;
@@ -19,8 +23,11 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import androidx.core.content.FileProvider;
 import androidx.webkit.WebViewAssetLoader;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Locale;
 
@@ -179,14 +186,46 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public void speak(String text, String languageTag) {
+            speakQueued(text, languageTag, true);
+        }
+
+        /** flush = say it now and drop anything waiting; otherwise it is added to the queue. */
+        @JavascriptInterface
+        public void speakQueued(String text, String languageTag, boolean flush) {
             if (!ttsReady || text == null) return;
             try {
                 Locale wanted = Locale.forLanguageTag(languageTag == null ? "en-IN" : languageTag);
                 int ok = tts.isLanguageAvailable(wanted);
                 tts.setLanguage(ok >= TextToSpeech.LANG_AVAILABLE ? wanted : Locale.forLanguageTag("en-IN"));
-                tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "count");
+                tts.speak(text, flush ? TextToSpeech.QUEUE_FLUSH : TextToSpeech.QUEUE_ADD, null, "say");
             } catch (RuntimeException ignored) {
                 // speech is optional
+            }
+        }
+
+        /** Opens the phone's share sheet with the summary picture (WhatsApp status, Instagram and so on). */
+        @JavascriptInterface
+        public void shareImage(String base64Png, final String text) {
+            try {
+                byte[] png = Base64.decode(base64Png, Base64.DEFAULT);
+                File dir = new File(getCacheDir(), "share");
+                if (!dir.exists() && !dir.mkdirs()) return;
+                File file = new File(dir, "suryanamaskar.png");
+                try (FileOutputStream out = new FileOutputStream(file)) {
+                    out.write(png);
+                }
+                final Uri uri = FileProvider.getUriForFile(MainActivity.this, getPackageName() + ".files", file);
+                runOnUiThread(() -> {
+                    Intent send = new Intent(Intent.ACTION_SEND);
+                    send.setType("image/png");
+                    send.putExtra(Intent.EXTRA_STREAM, uri);
+                    if (text != null) send.putExtra(Intent.EXTRA_TEXT, text);
+                    send.setClipData(ClipData.newRawUri("", uri));
+                    send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    startActivity(Intent.createChooser(send, null));
+                });
+            } catch (IOException | RuntimeException e) {
+                android.util.Log.e("SuryaShare", "share failed", e);
             }
         }
     }

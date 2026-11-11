@@ -4,6 +4,7 @@
   :root:not([data-theme=light]) { --bg:#1E140F; --card:#2A1C15; --ink:#FBEBDD; --muted:#C2A592; --line:#3D2A20; --guide:rgba(42,28,21,.88); color-scheme:dark; }
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { margin:0; height:100%; }
 body { background:var(--bg); color:var(--ink); font:16px/1.5 system-ui, "Noto Sans Devanagari", sans-serif; display:flex; flex-direction:column; }
 header { padding:14px 18px 6px; }
@@ -65,3 +66,15 @@ input[type=number] { font:inherit; width:96px; padding:8px 10px; border-radius:1
 .insights dd { font-weight:600; text-align:right; padding-left:12px; }
 .insights dd.up { color:#2E8B57; }
 .insights dd.wide, .insights dt.wide { grid-column:1 / -1; text-align:left; }
+.done-title { text-align:center; font-size:22px; font-weight:700; color:var(--sun); margin:6px 0 0; }
+.wide-btn { width:100%; margin-top:14px; }
+#intro { position:fixed; inset:0; z-index:10; background:var(--bg); display:flex; flex-direction:column; padding:22px 20px calc(18px + env(safe-area-inset-bottom)); overflow-y:auto; }
+#intro[hidden] { display:none; }
+#introArt { width:100%; max-width:440px; height:auto; margin:6px auto 4px; }
+#intro h2 { color:var(--sun); font-size:24px; font-weight:700; margin:10px 0 8px; text-align:center; }
+#intro p { text-align:center; margin:0 auto; max-width:440px; font-size:17px; flex:1; }
+#introLangRow { max-width:440px; width:100%; margin:8px auto 0; }
+.intro-dots { display:flex; justify-content:center; gap:8px; margin:14px 0 4px; }
+.intro-dots span { width:9px; height:9px; border-radius:50%; background:var(--line); }
+.intro-dots span.on { background:var(--sun); }
+#intro .controls { max-width:440px; width:100%; margin:10px auto 0; }

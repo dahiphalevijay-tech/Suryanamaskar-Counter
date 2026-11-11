@@ -1,6 +1,7 @@
 import { POSES, POSE_INFO, lerpPose } from './poses.js';
 import { RepCounter, TRACKED_STEPS } from './counter.js';
-import { STR, SPEECH_LANG } from './i18n.js';
+import { STR, SPEECH_LANG, MANTRAS } from './i18n.js';
+import { drawShareCard, shareCard } from './share.js';
 import { dayKey, kcalFor, bmi, summarize } from './stats.js';
 
 const $ = (id) => document.getElementById(id);
@@ -182,23 +183,38 @@ let wakeLock = null;
 let noticeUntil = 0;
 let sess = null;
 let mirror = true;
+let lastSeenAt = 0;
+let lastActiveAt = 0;
+let startedAt = 0;
+let lastStep = 0;
 const guide = $('guide');
 const gctx = guide.getContext('2d');
 const dots = $('dots');
 for (const step of TRACKED_STEPS) { const d = document.createElement('span'); d.dataset.step = step; dots.append(d); }
 const LINKS = [[11, 13], [13, 15], [12, 14], [14, 16], [11, 12], [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28], [27, 31], [28, 32]];
 
-function speak(text) {
-  if (!$('voice').checked) return;
+// The person stands side-on, away from the phone, so the voice is the main way the app talks to them.
+// flush = say it now, dropping anything still queued; otherwise it waits its turn.
+function say(text, flush = true) {
+  if ($('voiceMode').value === 'off' || !text) return;
   try {
-    if (window.AndroidBridge && window.AndroidBridge.speak) { window.AndroidBridge.speak(String(text), SPEECH_LANG[lang]); return; }
+    const B = window.AndroidBridge;
+    if (B && B.speakQueued) { B.speakQueued(String(text), SPEECH_LANG[lang], flush); return; }
+    if (B && B.speak) { B.speak(String(text), SPEECH_LANG[lang]); return; }
     if ('speechSynthesis' in window) {
       const u = new SpeechSynthesisUtterance(String(text));
-      u.lang = SPEECH_LANG[lang]; u.rate = 1.1;
-      speechSynthesis.cancel(); speechSynthesis.speak(u);
+      u.lang = SPEECH_LANG[lang]; u.rate = 1.05;
+      if (flush) speechSynthesis.cancel();
+      speechSynthesis.speak(u);
     }
   } catch { /* speech not available */ }
 }
+const fullVoice = () => $('voiceMode').value === 'full';
+const spokenPose = (step) => { const info = POSE_INFO[step - 1]; return `${lang === 'en' ? info.en : info.dev}. ${t(info.breath)}`; };
+const mantraFor = (n) => (lang === 'en' ? MANTRAS.en : MANTRAS.dev)[((n % 12) + 12) % 12];
+const STAGE_VOICE = { far: 'vFar', stand: 'vStand', turn: 'vTurn', lost: 'vLost' };
+const voiceState = { stage: '', stageAt: 0, target: 0, importantAt: 0, calibSeq: 0 };
+
 function showError(msg) { const e = $('error'); e.textContent = msg; e.hidden = !msg; }
 
 // The "full" pose model keeps hold of a person better in head-down poses; "lite" is faster.
@@ -256,6 +272,10 @@ async function start() {
   counter.reset();
   sessionCount = 0;
   sess = { t: Date.now(), ms: 0, rounds: 0, rej: 0, steps: new Array(12).fill(0) };
+  Object.assign(voiceState, { stage: '', stageAt: 0, target: 0, importantAt: 0, calibSeq: 0 });
+  startedAt = lastSeenAt = lastActiveAt = performance.now();
+  lastStep = 0;
+  $('done').hidden = true;
   guide.hidden = true;
   $('count').textContent = '0';
   $('idle').hidden = true; $('live').hidden = false;
@@ -291,21 +311,84 @@ async function listLenses() {
   } catch (e) { console.error(e); }
 }
 
-function stop() {
+function stop(spoken = false) {
+  if (!running) return;
   running = false;
   if (stream) { stream.getTracks().forEach((x) => x.stop()); stream = null; }
   if (wakeLock) { try { wakeLock.release(); } catch { /* ignore */ } wakeLock = null; }
   addToday(sessionCount);
+  let saved = null;
   if (sess && (sessionCount > 0 || sess.rej > 0)) {
     const kcal = kcalFor(Number($('weight').value), sess.ms, sess.rounds);
-    saveSession({ ...sess, n: sessionCount, kcal: Math.round(kcal * 10) / 10 });
+    saved = { ...sess, n: sessionCount, kcal: Math.round(kcal * 10) / 10 };
+    saveSession(saved);
   }
   sess = null;
+  if (spoken && sessionCount > 0) say(`${t('vFinished')}. ${sessionCount}`, true);
   renderLastSummary();
-  $('live').hidden = true; $('idle').hidden = false;
+  $('live').hidden = true;
   resetStart();
   renderProgress();
+  if (saved && saved.n > 0) showDone(saved); else $('idle').hidden = false;
 }
+
+// ---------- after practice: summary and sharing ----------
+let doneSession = null;
+function sessionStats(sn) {
+  const out = [];
+  if (sn.rounds) {
+    out.push({ label: t('duration'), value: fmtDur(sn.ms) });
+    out.push({ label: t('pace'), value: `${Math.round(sn.ms / 1000 / sn.rounds)} ${t('perRound')}` });
+  }
+  if (sn.kcal) out.push({ label: t('iKcal'), value: `${Math.round(sn.kcal)} ${t('kcal')}` });
+  return out;
+}
+function currentStreak() {
+  const days = store.get('days', {});
+  let streak = 0;
+  const d = new Date();
+  if (!days[dayKey(d)]) d.setDate(d.getDate() - 1);
+  while (days[dayKey(d)] > 0) { streak += 1; d.setDate(d.getDate() - 1); }
+  return streak;
+}
+function showDone(sn) {
+  doneSession = sn;
+  $('doneCount').textContent = sn.n;
+  const box = $('doneStats');
+  box.textContent = '';
+  const rows = sessionStats(sn);
+  rows.push({ label: t('streakLabel'), value: String(currentStreak()) });
+  if (sn.rounds) {
+    let worst = null;
+    for (const step of TRACKED_STEPS) {
+      const missed = sn.rounds - sn.steps[step - 1];
+      if (step !== 1 && step !== 12 && missed > 0 && (!worst || missed > worst.missed)) worst = { step, missed };
+    }
+    rows.push({ label: t('iMissed'), value: worst ? `${poseName(worst.step)} (${worst.missed})` : t('iNoMiss') });
+  }
+  for (const r of rows) {
+    const dt = document.createElement('dt'); dt.textContent = r.label;
+    const dd = document.createElement('dd'); dd.textContent = r.value;
+    box.append(dt, dd);
+  }
+  $('idle').hidden = true;
+  $('done').hidden = false;
+}
+function buildShareCard(sn) {
+  const card = $('shareCard');
+  const stats = sessionStats(sn).map((x) => ({ label: x.label, value: x.value.replace(` ${t('perRound')}`, ' s') }));
+  if (stats.length < 3) stats.push({ label: t('streakLabel'), value: String(currentStreak()) });
+  drawShareCard(card, {
+    count: sn.n, label: t('iTotal'), date: new Date(sn.t).toLocaleDateString(SPEECH_LANG[lang], { day: 'numeric', month: 'long', year: 'numeric' }),
+    stats, footer: t('appName'),
+  });
+  return card;
+}
+$('shareBtn').addEventListener('click', () => {
+  if (!doneSession) return;
+  shareCard(buildShareCard(doneSession), t('shareText').replace('{n}', doneSession.n));
+});
+$('doneClose').addEventListener('click', () => { $('done').hidden = true; $('idle').hidden = false; });
 
 function setCount(n) {
   sessionCount = Math.max(0, n);
@@ -375,8 +458,43 @@ function loop(now) {
     if (sess) sess.rej += 1;
     noticeUntil = now + 2500;
     $('hint').textContent = t('notCounted');
+    say(t('vNotCounted'), true); voiceState.importantAt = now; voiceState.afterImportant = true;
     if (navigator.vibrate) navigator.vibrate([40, 60, 40]);
   }
+
+  // ----- voice guidance -----
+  const tracking = out.calibrated && out.visible && out.stage !== 'turn';
+  if (out.calibSeq !== voiceState.calibSeq && out.calibrated) {
+    voiceState.calibSeq = out.calibSeq;
+    voiceState.stage = 'ok'; voiceState.target = 0;
+    say(t('begin'), true); voiceState.importantAt = now; voiceState.afterImportant = true;
+    if ($('mantra').checked) say(mantraFor(sessionCount), false);
+  }
+  if (!tracking) {
+    const key = STAGE_VOICE[out.stage];
+    const every = out.stage === 'lost' ? 20000 : 8000;
+    const settled = out.stage !== 'lost' || now - lastSeenAt > 4000;
+    if (key && settled && (voiceState.stage !== out.stage || now - voiceState.stageAt > every)) {
+      voiceState.stage = out.stage; voiceState.stageAt = now; voiceState.target = 0;
+      say(t(key), true);
+    }
+  } else {
+    voiceState.stage = 'ok';
+    if (fullVoice() && out.next !== voiceState.target && !out.counted) {
+      voiceState.target = out.next;
+      // let a count, "Begin" or mantra that was just spoken finish before naming the next pose;
+      // after that, each new pose name replaces the previous one so the voice never falls behind
+      const wait = voiceState.afterImportant && now - voiceState.importantAt < 4000;
+      voiceState.afterImportant = false;
+      say(spokenPose(out.next), !wait);
+    }
+  }
+
+  // ----- hands-free finish -----
+  if (out.visible) lastSeenAt = now;
+  if (out.step !== lastStep || out.counted) { lastStep = out.step; lastActiveAt = now; }
+  if ($('autoFinish').checked && sessionCount > 0 && (now - lastSeenAt > 10000 || now - lastActiveAt > 45000)) { stop(true); return; }
+  if (sessionCount === 0 && now - Math.max(lastSeenAt, startedAt) > 300000) { stop(false); return; }
   if ($('optNumbers').checked) {
     const f = out.feat;
     $('tuneBox').hidden = false;
@@ -391,19 +509,24 @@ function loop(now) {
     }
     sessionCount = out.count;
     $('count').textContent = sessionCount;
-    speak(sessionCount);
+    say(sessionCount, true); voiceState.importantAt = now; voiceState.afterImportant = true; voiceState.target = 0;
+    if (fullVoice() && out.round) {
+      const missed = TRACKED_STEPS.find((step) => !out.round.seen[step]);
+      if (missed) say(`${t('vMissed')}: ${lang === 'en' ? POSE_INFO[missed - 1].en : POSE_INFO[missed - 1].dev}`, false);
+    }
     if (navigator.vibrate) navigator.vibrate(60);
     const target = Number($('target').value);
-    if (target && sessionCount === target) { noticeUntil = now + 4000; $('hint').textContent = t('done'); speak(t('done')); }
+    if (target && sessionCount === target) { noticeUntil = now + 4000; $('hint').textContent = t('done'); say(t('done'), false); }
+    else if ($('mantra').checked) say(mantraFor(sessionCount), false);
   }
 }
 
 $('start').addEventListener('click', start);
-$('stop').addEventListener('click', stop);
+$('stop').addEventListener('click', () => stop(false));
 $('plus').addEventListener('click', () => setCount(sessionCount + 1));
 $('minus').addEventListener('click', () => setCount(sessionCount - 1));
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden && running) stop();
+  if (document.hidden && running) stop(false);
   if (!document.hidden) refreshScreens();
 });
 
@@ -423,11 +546,11 @@ setInterval(() => { if (dayKey() !== shownDay) refreshScreens(); }, 30000);
 // ---------- settings ----------
 $('lang').value = lang;
 $('lang').addEventListener('change', () => { lang = $('lang').value; store.set('lang', lang); applyLang(); });
-for (const id of ['voice', 'optNumbers']) {
-  $(id).checked = store.get(id, id === 'voice');
+for (const [id, def] of [['optNumbers', false], ['mantra', false], ['autoFinish', true]]) {
+  $(id).checked = store.get(id, def);
   $(id).addEventListener('change', () => store.set(id, $(id).checked));
 }
-for (const id of ['facing', 'target', 'strictness', 'weight', 'height', 'theme']) {
+for (const id of ['facing', 'target', 'strictness', 'weight', 'height', 'theme', 'voiceMode']) {
   $(id).value = store.get(id, $(id).value);
   $(id).addEventListener('change', () => store.set(id, $(id).value));
 }
@@ -454,7 +577,72 @@ document.querySelectorAll('#period button').forEach((b) => b.addEventListener('c
 
 $('strictness').addEventListener('change', () => { counter.o.mode = $('strictness').value; });
 
+// ---------- first-run guide ----------
+const introArt = $('introArt');
+const ictx = introArt.getContext('2d');
+let introPage = 0;
+const INTRO = [['g1t', 'g1'], ['g2t', 'g2'], ['g3t', 'g3'], ['g4t', 'g4']];
+function drawIntro(page) {
+  const W = introArt.width, H = introArt.height;
+  const css = getComputedStyle(document.documentElement);
+  const sun = css.getPropertyValue('--sun').trim(), sun2 = css.getPropertyValue('--sun2').trim();
+  const ink = css.getPropertyValue('--muted').trim(), line = css.getPropertyValue('--line').trim();
+  ictx.clearRect(0, 0, W, H);
+  const ground = H - 70;
+  const figure = (pose, cx, scale) => {
+    const X = (p) => cx + p[0] * scale, Y = (p) => ground + p[1] * scale;
+    const limb = (pts, w, color) => { ictx.strokeStyle = color; ictx.lineWidth = w * scale; ictx.lineCap = 'round'; ictx.lineJoin = 'round';
+      ictx.beginPath(); ictx.moveTo(X(pts[0]), Y(pts[0])); pts.slice(1).forEach((p) => ictx.lineTo(X(p), Y(p))); ictx.stroke(); };
+    limb([pose.hip, pose.knB, pose.anB], 5.5, sun2); limb([pose.hip, pose.sh], 7.5, sun);
+    limb([pose.hip, pose.knA, pose.anA], 5.5, sun); limb([pose.sh, pose.el, pose.wr], 4, sun);
+    ictx.fillStyle = sun; ictx.beginPath(); ictx.arc(X(pose.head), Y(pose.head), 6.2 * scale, 0, Math.PI * 2); ictx.fill();
+  };
+  ictx.strokeStyle = line; ictx.lineWidth = 3; ictx.beginPath(); ictx.moveTo(30, ground + 12); ictx.lineTo(W - 30, ground + 12); ictx.stroke();
+  const phone = (x) => { ictx.fillStyle = ink; ictx.beginPath(); ictx.roundRect(x, ground - 96, 46, 96, 9); ictx.fill();
+    ictx.fillStyle = sun2; ictx.beginPath(); ictx.arc(x + 23, ground - 80, 5, 0, Math.PI * 2); ictx.fill(); };
+  if (page === 0) {
+    ictx.fillStyle = sun2; ictx.beginPath(); ictx.arc(W / 2, ground - 150, 120, 0, Math.PI * 2); ictx.fill();
+    figure(POSES[1], W / 2 + 10, 4);
+  } else if (page === 1) {
+    phone(60);
+    ictx.strokeStyle = ink; ictx.lineWidth = 3; ictx.setLineDash([12, 10]);
+    ictx.beginPath(); ictx.moveTo(125, ground + 40); ictx.lineTo(W - 150, ground + 40); ictx.stroke(); ictx.setLineDash([]);
+    ictx.fillStyle = ink; ictx.font = '600 30px system-ui, sans-serif'; ictx.textAlign = 'center'; ictx.fillText('2 – 3 m', (125 + W - 150) / 2, ground + 34 - 10);
+    figure(POSES[0], W - 130, 4);
+  } else if (page === 2) {
+    phone(60);
+    ictx.strokeStyle = sun2; ictx.lineWidth = 5; ictx.lineCap = 'round';
+    for (const r of [34, 58, 82]) { ictx.beginPath(); ictx.arc(106, ground - 60, r, -0.6, 0.6); ictx.stroke(); }
+    figure(POSES[7], W - 190, 3.6);
+  } else {
+    ictx.strokeStyle = sun; ictx.lineWidth = 16; ictx.lineCap = 'round';
+    ictx.beginPath(); ictx.arc(W / 2, ground - 170, 52, Math.PI, 0); ictx.stroke();
+    ictx.beginPath(); ictx.moveTo(W / 2 - 52, ground - 170); ictx.lineTo(W / 2 - 52, ground - 130); ictx.moveTo(W / 2 + 52, ground - 170); ictx.lineTo(W / 2 + 52, ground - 130); ictx.stroke();
+    ictx.fillStyle = sun; ictx.beginPath(); ictx.roundRect(W / 2 - 84, ground - 136, 168, 124, 20); ictx.fill();
+    ictx.fillStyle = sun2; ictx.beginPath(); ictx.arc(W / 2, ground - 84, 15, 0, Math.PI * 2); ictx.fill();
+  }
+}
+function showIntro(page) {
+  introPage = page;
+  $('introTitle').textContent = t(INTRO[page][0]);
+  $('introText').textContent = t(INTRO[page][1]);
+  $('introLangRow').hidden = page !== 0;
+  $('introNext').textContent = t(page === INTRO.length - 1 ? 'getStarted' : 'next');
+  $('introSkip').hidden = page === INTRO.length - 1;
+  const dotsEl = $('introDots');
+  dotsEl.textContent = '';
+  INTRO.forEach((_, i) => { const d = document.createElement('span'); if (i === page) d.className = 'on'; dotsEl.append(d); });
+  drawIntro(page);
+}
+function openIntro() { $('introLang').value = lang; $('intro').hidden = false; showIntro(0); }
+function closeIntro() { $('intro').hidden = true; store.set('introSeen', true); }
+$('introNext').addEventListener('click', () => (introPage === INTRO.length - 1 ? closeIntro() : showIntro(introPage + 1)));
+$('introSkip').addEventListener('click', closeIntro);
+$('introLang').addEventListener('change', () => { lang = $('introLang').value; $('lang').value = lang; store.set('lang', lang); applyLang(); showIntro(introPage); });
+$('howTo').addEventListener('click', openIntro);
+
 applyTheme();
 applyLang();
+if (!store.get('introSeen', false)) openIntro();
 renderLastSummary();
 requestAnimationFrame(animLoop);
