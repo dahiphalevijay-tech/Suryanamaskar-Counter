@@ -118,6 +118,13 @@ public class MainActivity extends Activity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        // tell the web app it is on screen again so it can refresh today's numbers
+        if (web != null) web.evaluateJavascript("window.dispatchEvent(new Event('focus'))", null);
+    }
+
+    @Override
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
         web.saveState(outState);

@@ -401,7 +401,23 @@ $('start').addEventListener('click', start);
 $('stop').addEventListener('click', stop);
 $('plus').addEventListener('click', () => setCount(sessionCount + 1));
 $('minus').addEventListener('click', () => setCount(sessionCount - 1));
-document.addEventListener('visibilitychange', () => { if (document.hidden && running) stop(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && running) stop();
+  if (!document.hidden) refreshScreens();
+});
+
+// Keeps "today", the streak and the insights current when the app is reopened or the date changes,
+// without the user having to switch tabs or restart the app.
+let shownDay = dayKey();
+function refreshScreens() {
+  shownDay = dayKey();
+  if (running) return;
+  renderProgress();
+  renderLastSummary();
+}
+window.addEventListener('focus', refreshScreens);
+window.addEventListener('pageshow', refreshScreens);
+setInterval(() => { if (dayKey() !== shownDay) refreshScreens(); }, 30000);
 
 // ---------- settings ----------
 $('lang').value = lang;
