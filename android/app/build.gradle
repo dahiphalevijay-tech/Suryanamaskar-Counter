@@ -11,6 +11,16 @@ android {
         versionCode 1
         versionName '0.1'
     }
+    // Test builds are all signed with the same key kept in the repository, so a newer test build installs
+    // over an older one without uninstalling. This key is public and is NOT the Play Store key.
+    signingConfigs {
+        debug {
+            storeFile rootProject.file('test-key.jks')
+            storePassword 'testbuild'
+            keyAlias 'test'
+            keyPassword 'testbuild'
+        }
+    }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
