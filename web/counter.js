@@ -25,6 +25,9 @@ export const DEFAULTS = {
   stepDwellMs: 150,   // a step must be held this long to be recognised
   skipDwellMs: 200,   // extra hold needed for each step that would be skipped
   lookAhead: 4,       // how far ahead in the sequence a recognised step may be
+  stillTol: 0.04,     // how much the body may move (fraction of its height) and still count as standing still
+  recalDiff: 0.1,     // a still, upright stance this different from the calibration triggers a fresh calibration
+  stallMs: 25000,     // no new step for this long abandons the round in progress
   gapResetMs: 5000,   // this long without a usable picture abandons the round in progress
   abandonMs: 1000,    // standing this long in the middle of a round abandons it
 };
@@ -87,6 +90,8 @@ export class RepCounter {
     this.s = null;
     this.calibStart = null;
     this.calibSamples = [];
+    this.stanceBuf = [];
+    this.widthAvg = 0;
     this.condSince = { up: null, floor: null };
     this.leftUpAt = null;
     this.lastSeen = null;
@@ -99,6 +104,41 @@ export class RepCounter {
     this._newRound(0);
   }
 
+  // Tracks whether the person is upright (shoulders over hips over feet) and has kept still for calibMs.
+  _stance(landmarks, s, feetY, t, aspect) {
+    const o = this.o;
+    const body = feetY - s.shY;
+    const hipFrac = body > 0 ? (s.hipY - s.shY) / body : 0;
+    const lean = body > 0 ? Math.abs(s.shX - s.hipX) * aspect / body : 1;
+    const far = body < o.minBody;
+    const upright = !far && hipFrac > 0.28 && hipFrac < 0.58 && lean < 0.2;
+    if (!upright) { this.stanceBuf = []; return { held: false, upright, far }; }
+    const L = landmarks[11], R = landmarks[12];
+    const width = L && R && L.visibility >= VIS && R.visibility >= VIS ? Math.abs(L.x - R.x) * aspect / body : 0;
+    const buf = this.stanceBuf;
+    buf.push({ t, body, feetY, shY: s.shY, shX: s.shX * aspect, width });
+    while (buf.length && t - buf[0].t > o.calibMs) buf.shift();
+    const span = (k) => Math.max(...buf.map((b) => b[k])) - Math.min(...buf.map((b) => b[k]));
+    const still = span('shY') < o.stillTol * body && span('feetY') < o.stillTol * body && span('shX') < o.stillTol * body;
+    if (!still) { this.stanceBuf = buf.slice(-1); return { held: false, upright, far }; }
+    const mean = (k) => buf.reduce((x, b) => x + b[k], 0) / buf.length;
+    const held = buf.length >= 4 && t - buf[0].t >= o.calibMs * 0.9;
+    return { held, upright, far, body: mean('body'), floor: mean('feetY'), width: mean('width') };
+  }
+
+  _calibrate(stance, t) {
+    this.H = stance.body;
+    this.floorY = stance.floor;
+    this.widthAvg = stance.width;
+    this.front = stance.width > 0.12;
+    this.calibrated = true;
+    this.state = 'up';
+    this.leftUpAt = null;
+    this.condSince = { up: null, floor: null };
+    this.stanceBuf = [];
+    this._newRound(t);
+  }
+
   _newRound(t) {
     this.step = 1;                        // last step recognised in this round (1..12)
     this.seen = new Array(13).fill(false);
@@ -106,6 +146,7 @@ export class RepCounter {
     this.cand = { step: 0, since: 0 };
     this.roundStart = t;
     this.upSince = null;
+    this.lastStepAt = t;
   }
 
   // Follows the person through the 12 steps. Returns 'done', 'abandoned' or null.
@@ -126,6 +167,7 @@ export class RepCounter {
       if (t - this.cand.since >= need) {
         if (this.step === 1) this.roundStart = this.cand.since;
         this.step = hit;
+        this.lastStepAt = t;
         this.seen[hit] = true;
         this.cand = { step: 0, since: 0 };
         if (hit === 12) return 'done';
@@ -137,6 +179,8 @@ export class RepCounter {
       if (this.upSince === null) this.upSince = t;
       if (t - this.upSince >= o.abandonMs) return 'abandoned';
     } else this.upSince = null;
+    // nothing new for a long time: whatever was in progress is over
+    if (this.step > 1 && t - this.lastStepAt > o.stallMs) return 'stalled';
     return null;
   }
 
@@ -175,29 +219,19 @@ export class RepCounter {
     }
     const s = this.s;
 
+    // Is the person standing upright and still right now? (Judged without using the calibration.)
+    const stance = feetY === null ? null : this._stance(landmarks, s, feetY, t, aspect);
     if (!this.calibrated) {
-      const body = feetY - s.shY;
-      const hipFrac = body > 0 ? (s.hipY - s.shY) / body : 0;
-      const lean = body > 0 ? Math.abs(s.shX - s.hipX) * aspect / body : 1;
-      const upright = body >= o.minBody && hipFrac > 0.28 && hipFrac < 0.58 && lean < 0.2;
-      if (!upright) {
-        this.calibStart = null; this.calibSamples = [];
-        return this._out(body < o.minBody ? 'far' : 'stand', true);
-      }
-      if (this.calibStart === null) this.calibStart = t;
-      const L = landmarks[11], R = landmarks[12];
-      const width = L && R && L.visibility >= VIS && R.visibility >= VIS ? Math.abs(L.x - R.x) * aspect / body : 0;
-      this.calibSamples.push({ body, feetY, width });
-      if (t - this.calibStart >= o.calibMs) {
-        const n = this.calibSamples.length;
-        this.H = this.calibSamples.reduce((x, c) => x + c.body, 0) / n;
-        this.floorY = this.calibSamples.reduce((x, c) => x + c.feetY, 0) / n;
-        // wide shoulders while standing = the person is facing the camera
-        this.front = this.calibSamples.reduce((x, c) => x + c.width, 0) / n > 0.12;
-        this.calibrated = true;
-        this.state = 'up';
-        this.condSince = { up: null, floor: null };
-      }
+      if (!stance) return this._out('stand', true);
+      if (!stance.held) return this._out(stance.far ? 'far' : (stance.upright ? 'calibrating' : 'stand'), true);
+      this._calibrate(stance, t);
+      return this._out('calibrating', true);
+    }
+    // Standing still at a clearly different size or floor level than at calibration means the person (or the
+    // phone) has moved since then, so measure again instead of counting against the old numbers.
+    if (stance && stance.held && (Math.abs(stance.body - this.H) / this.H > o.recalDiff
+        || Math.abs(stance.floor - this.floorY) / this.H > o.recalDiff)) {
+      this._calibrate(stance, t);
       return this._out('calibrating', true);
     }
 
@@ -211,6 +245,15 @@ export class RepCounter {
     const lean = Math.abs(s.shX - s.hipX) * aspect / this.H;
     const isUp = this.h > o.upH && lean < o.upLean;
     const isFloor = this.k < o.floorK && this.h < o.floorH;
+    if (isUp) {
+      // people often face the phone to start and then turn side-on, so keep judging the view while they stand
+      const L = landmarks[11], R = landmarks[12];
+      if (L && R && L.visibility >= VIS && R.visibility >= VIS) {
+        this.widthAvg += (Math.abs(L.x - R.x) * aspect / this.H - this.widthAvg) * 0.2;
+        if (this.widthAvg > 0.14) this.front = true;
+        else if (this.widthAvg < 0.1) this.front = false;
+      }
+    }
     const upHeld = this._held('up', isUp, t);
     const floorHeld = this._held('floor', isFloor, t);
     let counted = false;
@@ -240,6 +283,8 @@ export class RepCounter {
         this.lastRound = { ms: t - this.roundStart, seen: this.seen.slice() };
       }
       else rejected = true;
+      this._newRound(t);
+    } else if (tracked === 'stalled') {
       this._newRound(t);
     } else if (tracked === 'abandoned') {
       if (FLOOR_STEPS.some((x) => this.seen[x])) rejected = true;

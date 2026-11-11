@@ -140,4 +140,40 @@ test('ignores impossible measurements when someone walks up to the camera', () =
     assert.equal(run(c, stand, t).last.count, 0, mode);
   }
 });
+test('recalibrates when the person calibrated close to the phone and then stepped back', () => {
+  const c = new RepCounter();
+  const near = (lm) => lm.map((p) => ({ ...p, x: 0.5 + (p.x - 0.5) * 1.4, y: 0.97 + (p.y - 0.88) * 1.4 }));
+  let t = 0;
+  for (let i = 0; i < 30; i++, t += DT) c.update(near(toLandmarks(POSES[0], 0.01, rnd)), t, 2);
+  assert.equal(c.calibrated, true);
+  const bigH = c.H;
+  // walks back: a few in-between frames, then stands at the normal spot
+  for (let i = 0; i < 12; i++, t += DT) {
+    const f = 1.4 - 0.4 * (i / 12);
+    c.update(toLandmarks(POSES[0], 0.01, rnd).map((p) => ({ ...p, x: 0.5 + (p.x - 0.5) * f, y: 0.88 + 0.09 * (f - 1) / 0.4 + (p.y - 0.88) * f })), t, 2);
+  }
+  const r = run(c, [...stand, ...reps(3, 600, 400)], t);
+  assert.ok(c.H < bigH * 0.8, 'calibration should have been redone at the new distance');
+  assert.equal(r.last.count, 3);
+});
+
+test('does not calibrate on someone walking past', () => {
+  const c = new RepCounter();
+  let t = 0;
+  for (let i = 0; i < 45; i++, t += DT) {
+    c.update(toLandmarks(POSES[0], 0.01, rnd).map((p) => ({ ...p, x: p.x - 0.3 + i * 0.012 })), t, 2);
+  }
+  assert.equal(c.calibrated, false);
+});
+
+test('a person who starts facing the phone and turns side-on is treated as side view', () => {
+  const c = new RepCounter({ mode: 'strict' });
+  const facing = (lm) => lm.map((p, i) => (i === 11 ? { ...p, x: p.x - 0.03 } : i === 12 ? { ...p, x: p.x + 0.03 } : p));
+  let t = 0;
+  for (let i = 0; i < 30; i++, t += DT) c.update(facing(toLandmarks(POSES[0], 0.005, rnd)), t, 2);
+  assert.equal(c.front, true);
+  const r = run(c, [[POSES[0], 0, 1500], ...reps(2, 600, 400)], t);
+  assert.equal(c.front, false);
+  assert.equal(r.last.count, 2);
+});
 console.log('all counter tests passed');
