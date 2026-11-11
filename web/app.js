@@ -1,5 +1,5 @@
 import { POSES, POSE_INFO, lerpPose } from './poses.js';
-import { RepCounter } from './counter.js';
+import { RepCounter, TRACKED_STEPS } from './counter.js';
 import { STR, SPEECH_LANG } from './i18n.js';
 import { dayKey, kcalFor, bmi, summarize } from './stats.js';
 
@@ -185,7 +185,7 @@ let mirror = true;
 const guide = $('guide');
 const gctx = guide.getContext('2d');
 const dots = $('dots');
-for (let i = 0; i < 12; i++) dots.append(document.createElement('span'));
+for (const step of TRACKED_STEPS) { const d = document.createElement('span'); d.dataset.step = step; dots.append(d); }
 const LINKS = [[11, 13], [13, 15], [12, 14], [14, 16], [11, 12], [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28], [27, 31], [28, 32]];
 
 function speak(text) {
@@ -356,7 +356,7 @@ function loop(now) {
   }
 
   // step guide: the small figure shows the next step, the dots show which steps were recognised
-  if (out.calibrated && out.visible) {
+  if (out.calibrated && out.visible && out.stage !== 'turn') {
     const target = out.next;
     const info = POSE_INFO[target - 1];
     const phase = (now % 1700) / 1700;
@@ -365,10 +365,11 @@ function loop(now) {
     const dir = (mirror ? -1 : 1) * (out.facing || 1);
     guide.style.transform = dir < 0 ? 'scaleX(-1)' : '';
     if (now > noticeUntil) $('hint').textContent = `${target}. ${lang === 'en' ? info.en : info.dev} · ${t(info.breath)}`;
-    [...dots.children].forEach((d, i) => { d.className = out.seen[i + 1] ? 'on' : (i + 1 === target ? 'next' : ''); });
+    [...dots.children].forEach((d) => { const n = Number(d.dataset.step); d.className = out.seen[n] ? 'on' : (n === target ? 'next' : ''); });
   } else {
     guide.hidden = true;
-    $('hint').textContent = t(out.stage);
+    if (now > noticeUntil || out.stage === 'turn') $('hint').textContent = t(out.stage);
+    if (out.stage === 'turn') [...dots.children].forEach((d) => { d.className = ''; });
   }
   if (out.rejected) {
     if (sess) sess.rej += 1;

@@ -97,7 +97,7 @@ for (const mode of ['easy', 'standard', 'strict']) {
   });
 }
 
-test('follows the 12 steps in order', () => {
+test('follows the steps in order', () => {
   const c = new RepCounter({ mode: 'strict' });
   let { t } = run(c, stand);
   const order = [];
@@ -105,7 +105,8 @@ test('follows the 12 steps in order', () => {
     const r = run(c, [[p, 600, 400]], t); t = r.t;
     order.push(r.last.counted || r.last.step === 1 ? 12 : r.last.step);
   }
-  assert.deepEqual(order.slice(0, 10), [2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+  // raised arms on the way up (the 10th entry) is not tracked, so the tracker stays on step 10 through it
+  assert.deepEqual(order.slice(0, 10), [2, 3, 4, 5, 6, 7, 8, 9, 10, 10]);
   assert.equal(c.count, 1);
 });
 
@@ -175,5 +176,26 @@ test('a person who starts facing the phone and turns side-on is treated as side 
   const r = run(c, [[POSES[0], 0, 1500], ...reps(2, 600, 400)], t);
   assert.equal(c.front, false);
   assert.equal(r.last.count, 2);
+});
+test('a round that goes from the forward bend straight to prayer counts even in strict mode', () => {
+  const c = new RepCounter({ mode: 'strict' });
+  const noEleven = POSES.filter((_, i) => i !== 10).map((p) => [p, 600, 400]);
+  assert.equal(run(c, [...stand, ...noEleven, ...noEleven, ...noEleven]).last.count, 3);
+});
+
+test('a person facing the camera is asked to turn and nothing is counted', () => {
+  for (const mode of ['easy', 'standard', 'strict']) {
+    const c = new RepCounter({ mode });
+    const facing = (lm) => lm.map((p, i) => (i === 11 ? { ...p, x: p.x - 0.06 } : i === 12 ? { ...p, x: p.x + 0.06 } : p));
+    let t = 0, last, prev = POSES[0];
+    for (const [pose, moveMs, holdMs] of [...stand, ...reps(3, 600, 400)]) {
+      for (let e = 0; e < moveMs + holdMs; e += DT, t += DT) {
+        last = c.update(facing(toLandmarks(e < moveMs ? lerpPose(prev, pose, e / moveMs) : pose, 0.01, rnd)), t, 2);
+      }
+      prev = pose;
+    }
+    assert.equal(last.count, 0, mode);
+    assert.equal(last.stage, 'turn', mode);
+  }
 });
 console.log('all counter tests passed');

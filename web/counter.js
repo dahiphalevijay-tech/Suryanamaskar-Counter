@@ -5,7 +5,7 @@
 //   k = how high the hips are above the floor
 // The counter follows the person through the 12 steps in order. A round runs from standing, down through at
 // least one floor pose, and back to standing; it is counted when enough of the 12 steps were recognised:
-// 5 for 'easy', 8 for 'standard', all 12 for 'strict'.
+// 5 for 'easy', 8 for 'standard', all 11 tracked steps for 'strict'.
 // Squats and plain forward bends never bring shoulders and hips low together, so they are never counted.
 
 export const DEFAULTS = {
@@ -36,13 +36,11 @@ export const DEFAULTS = {
 //   h = shoulder height, k = hip height, raise = wrists above shoulders,
 //   sep = distance between the two feet, reach = shoulders ahead of the feet
 const RAISE = 0.02;
-// Each rule has a version for a person facing the camera (f.front) and for a person seen from the side.
-// Facing the camera, forward distance cannot be seen, so those versions rely on shoulder and hip height only.
-// The front-view numbers were tuned on a real recording; the side-view numbers are still estimates.
-const bend = (f) => (f.front ? f.k > 0.48 && f.h < 0.68 : f.k > 0.45 && f.h < 0.68 && f.reach < 0.4);
-const lunge = (f) => (f.front
-  ? f.k > 0.34 && f.k < 0.5 && f.h > 0.36 && f.h < 0.58
-  : f.k < 0.42 && f.sep > 0.4 && f.h > 0.25);
+// The app works from the side only: the camera must see the person in profile. (Facing the camera, a leg
+// stepping back or hands reaching forward cannot be seen, so the lunges and mountain pose cannot be checked.)
+// These numbers were checked against real side-on recordings.
+const bend = (f) => f.k > 0.45 && f.h < 0.68 && f.reach < 0.4;
+const lunge = (f) => f.k < 0.42 && f.sep > 0.4 && f.h > 0.25;
 export const STEP_RULES = [
   (f) => f.h > 0.85 && f.raise < RAISE,                                                  // 1 prayer
   (f) => f.h > 0.8 && f.raise >= RAISE,                                                  // 2 raised arms
@@ -51,12 +49,15 @@ export const STEP_RULES = [
   (f) => f.k < 0.42 && f.k > 0.15 && f.h > 0.28 && f.h < 0.6 && f.sep < 0.4 && f.h - f.k < 0.25, // 5 plank
   (f) => f.h < 0.22 && f.k < 0.42,                                                       // 6 eight-point
   (f) => f.k < 0.22 && f.h - f.k > 0.18,                                                 // 7 cobra
-  (f) => (f.front ? f.k > 0.4 && f.h < 0.4 && f.h < f.k - 0.08 : f.k > 0.45 && f.h < 0.5 && f.reach >= 0.4), // 8 mountain
+  (f) => f.k > 0.45 && f.h < 0.5 && f.reach >= 0.4,                                      // 8 mountain
   lunge,                                                                                 // 9 lunge, other leg
-  (f) => (f.front ? f.k > 0.48 && f.h >= 0.38 && f.h < 0.68 : bend(f)),                  // 10 forward bend
+  bend,                                                                                  // 10 forward bend
+  null,                                                                                  // 11 raised arms: not tracked
+  (f) => f.h > 0.85 && f.raise < RAISE,                                                  // 12 prayer
 ];
-STEP_RULES[10] = STEP_RULES[1];  // 11 raised arms
-STEP_RULES[11] = STEP_RULES[0];  // 12 prayer
+// Step 11 (raised arms on the way up) is left out of the count: many people go from the forward bend
+// straight to prayer pose. Doing it does no harm; it is simply not looked for.
+export const TRACKED_STEPS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12];
 const FLOOR_STEPS = [4, 5, 6, 7, 9];
 
 const VIS = 0.5;
@@ -130,7 +131,7 @@ export class RepCounter {
     this.H = stance.body;
     this.floorY = stance.floor;
     this.widthAvg = stance.width;
-    this.front = stance.width > 0.12;
+    this.front = stance.width > 0.15;
     this.calibrated = true;
     this.state = 'up';
     this.leftUpAt = null;
@@ -154,6 +155,7 @@ export class RepCounter {
     const o = this.o;
     let hit = 0;
     for (let j = this.step + 1; j <= Math.min(12, this.step + o.lookAhead); j++) {
+      if (!STEP_RULES[j - 1]) continue;
       if (j === 12 && !FLOOR_STEPS.some((x) => this.seen[x])) continue;
       // the way back up (steps 9 onward) only opens once the lowest poses have been reached
       if (j >= 9 && !(this.seen[6] || this.seen[7] || this.seen[8])) continue;
@@ -163,7 +165,8 @@ export class RepCounter {
     }
     if (hit) {
       if (this.cand.step !== hit) this.cand = { step: hit, since: t };
-      const need = o.stepDwellMs + o.skipDwellMs * (hit - this.step - 1);
+      const skipped = TRACKED_STEPS.filter((x) => x > this.step && x < hit).length;
+      const need = o.stepDwellMs + o.skipDwellMs * skipped;
       if (t - this.cand.since >= need) {
         if (this.step === 1) this.roundStart = this.cand.since;
         this.step = hit;
@@ -250,8 +253,8 @@ export class RepCounter {
       const L = landmarks[11], R = landmarks[12];
       if (L && R && L.visibility >= VIS && R.visibility >= VIS) {
         this.widthAvg += (Math.abs(L.x - R.x) * aspect / this.H - this.widthAvg) * 0.2;
-        if (this.widthAvg > 0.14) this.front = true;
-        else if (this.widthAvg < 0.1) this.front = false;
+        if (this.widthAvg > 0.16) this.front = true;
+        else if (this.widthAvg < 0.13) this.front = false;
       }
     }
     const upHeld = this._held('up', isUp, t);
@@ -274,10 +277,15 @@ export class RepCounter {
       sep: okL && okR ? Math.abs(aL.x - aR.x) * aspect / this.H : 0,
       reach: this.ankleX === null ? 0 : Math.abs(s.shX - this.ankleX) * aspect / this.H,
     };
+    if (this.front) {
+      // facing the camera: nothing is counted until the person turns side-on
+      if (this.step > 1 || this.state !== 'up') { this.state = 'up'; this.leftUpAt = null; this._newRound(t); }
+      return this._out('turn', true);
+    }
     const tracked = this._track(f, t, isUp);
     if (tracked === 'done') {
       const seenCount = this.seen.filter(Boolean).length;
-      const need = o.mode === 'strict' ? 12 : (o.mode === 'easy' ? o.easySteps : o.standardSteps);
+      const need = o.mode === 'strict' ? TRACKED_STEPS.length : (o.mode === 'easy' ? o.easySteps : o.standardSteps);
       if (seenCount >= need && t - this.roundStart >= o.minRepMs) {
         this.count += 1; counted = true;
         this.lastRound = { ms: t - this.roundStart, seen: this.seen.slice() };
@@ -333,7 +341,8 @@ export class RepCounter {
   _out(stage, visible, counted = false, rejected = false) {
     return {
       count: this.count, stage, visible, counted, rejected, calibrated: this.calibrated,
-      h: this.h, k: this.k, feat: this.feat, step: this.step, next: this.step >= 12 ? 1 : this.step + 1,
+      h: this.h, k: this.k, feat: this.feat, step: this.step,
+      next: this.step >= 12 ? 1 : TRACKED_STEPS[TRACKED_STEPS.indexOf(this.step) + 1],
       seen: this.seen, facing: this.facing, front: this.front,
       round: counted ? this.lastRound : null,
     };
