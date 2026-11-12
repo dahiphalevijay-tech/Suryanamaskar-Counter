@@ -226,8 +226,19 @@ let inferMs = 0;
 let inferN = 0;
 let switching = false;
 const SLOW_MS = 85;
+const VERY_SLOW_MS = 140;
+let smallInput = false;                       // feed the detector a half-size picture (very slow phones)
+const small = document.createElement('canvas');
+const sctx = small.getContext('2d');
+// Phones with little memory or few processor cores start on the light model straight away; so does any
+// phone that proved too slow for the full model in an earlier session.
+function startingModel() {
+  const weak = (navigator.deviceMemory && navigator.deviceMemory <= 2)
+    || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4);
+  return weak || store.get('slowPhone', false) ? 'lite' : 'full';
+}
 
-async function loadModel(kind = 'full') {
+async function loadModel(kind = startingModel()) {
   if (landmarker && modelKind === kind) return;
   if (!vision) {
     vision = await import('./vendor/tasks-vision/vision_bundle.js');
@@ -407,15 +418,23 @@ function loop(now) {
   let lm = null;
   try {
     const t0 = performance.now();
-    const res = landmarker.detectForVideo(cam, now);
+    let input = cam;
+    if (smallInput) {
+      if (small.width !== W >> 1) { small.width = W >> 1; small.height = H >> 1; }
+      sctx.drawImage(cam, 0, 0, small.width, small.height);
+      input = small;
+    }
+    const res = landmarker.detectForVideo(input, now);
     lm = res.landmarks && res.landmarks[0];
     const dt = performance.now() - t0;
     inferN += 1;
     if (inferN > 5) inferMs += (dt - inferMs) / Math.min(inferN - 5, 30);
     if (modelKind === 'full' && inferN > 45 && inferMs > SLOW_MS && !switching) {
       switching = true;
+      store.set('slowPhone', true);
       loadModel('lite').catch((e) => console.error(e)).finally(() => { switching = false; });
     }
+    if (modelKind === 'lite' && !smallInput && inferN > 30 && inferMs > VERY_SLOW_MS) { smallInput = true; inferN = 6; }
   } catch (e) { console.error(e); }
   const out = counter.update(lm || null, now, W / H);
 
@@ -498,7 +517,7 @@ function loop(now) {
   if ($('optNumbers').checked) {
     const f = out.feat;
     $('tuneBox').hidden = false;
-    $('tuneBox').textContent = `${modelKind} ${inferMs.toFixed(0)}ms\nstep ${out.step} ${out.front ? 'front' : 'side'}\nh ${f.h.toFixed(2)}  k ${f.k.toFixed(2)}\nraise ${f.raise.toFixed(2)}\nfeet ${f.sep.toFixed(2)}\nreach ${f.reach.toFixed(2)}`;
+    $('tuneBox').textContent = `${modelKind}${smallInput ? ' small' : ''} ${inferMs.toFixed(0)}ms\nstep ${out.step} ${out.front ? 'front' : 'side'}\nh ${f.h.toFixed(2)}  k ${f.k.toFixed(2)}\nraise ${f.raise.toFixed(2)}\nfeet ${f.sep.toFixed(2)}\nreach ${f.reach.toFixed(2)}`;
   } else $('tuneBox').hidden = true;
 
   if (out.counted) {
@@ -635,7 +654,12 @@ function showIntro(page) {
   drawIntro(page);
 }
 function openIntro() { $('introLang').value = lang; $('intro').hidden = false; showIntro(0); }
-function closeIntro() { $('intro').hidden = true; store.set('introSeen', true); }
+function closeIntro() { $('intro').hidden = true; store.set('introSeen', true); if (!store.get('healthSeen', false)) openHealth(); }
+
+// ---------- health and safety notice ----------
+function openHealth() { $('health').hidden = false; $('health').scrollTop = 0; }
+$('healthOk').addEventListener('click', () => { $('health').hidden = true; store.set('healthSeen', true); });
+$('healthBtn').addEventListener('click', openHealth);
 $('introNext').addEventListener('click', () => (introPage === INTRO.length - 1 ? closeIntro() : showIntro(introPage + 1)));
 $('introSkip').addEventListener('click', closeIntro);
 $('introLang').addEventListener('change', () => { lang = $('introLang').value; $('lang').value = lang; store.set('lang', lang); applyLang(); showIntro(introPage); });
@@ -644,5 +668,6 @@ $('howTo').addEventListener('click', openIntro);
 applyTheme();
 applyLang();
 if (!store.get('introSeen', false)) openIntro();
+else if (!store.get('healthSeen', false)) openHealth();
 renderLastSummary();
 requestAnimationFrame(animLoop);

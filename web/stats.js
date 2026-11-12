@@ -59,8 +59,8 @@ export function summarize(days, sessions, periodDays, now = new Date()) {
   if (mine.some((s) => s.n > 0)) usualHour = hours.indexOf(Math.max(...hours));
   let missed = null;
   if (rounds > 0) {
-    // steps 1 and 12 are always recognised and step 11 is not tracked, so only steps 2 to 10 can be missed
-    for (let i = 1; i <= 9; i++) {
+    // steps 1 and 12 are always recognised, so only the ten in between can be missed
+    for (let i = 1; i <= 10; i++) {
       const m = rounds - seen[i];
       if (m > 0 && (!missed || m > missed.missed)) missed = { step: i + 1, missed: m, rounds };
     }

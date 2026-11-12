@@ -105,8 +105,7 @@ test('follows the steps in order', () => {
     const r = run(c, [[p, 600, 400]], t); t = r.t;
     order.push(r.last.counted || r.last.step === 1 ? 12 : r.last.step);
   }
-  // raised arms on the way up (the 10th entry) is not tracked, so the tracker stays on step 10 through it
-  assert.deepEqual(order.slice(0, 10), [2, 3, 4, 5, 6, 7, 8, 9, 10, 10]);
+  assert.deepEqual(order.slice(0, 10), [2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
   assert.equal(c.count, 1);
 });
 
@@ -177,10 +176,33 @@ test('a person who starts facing the phone and turns side-on is treated as side 
   assert.equal(c.front, false);
   assert.equal(r.last.count, 2);
 });
-test('a round that goes from the forward bend straight to prayer counts even in strict mode', () => {
-  const c = new RepCounter({ mode: 'strict' });
+test('skipping raised arms on the way up: standard counts the round, strict does not', () => {
   const noEleven = POSES.filter((_, i) => i !== 10).map((p) => [p, 600, 400]);
-  assert.equal(run(c, [...stand, ...noEleven, ...noEleven, ...noEleven]).last.count, 3);
+  const counts = {};
+  for (const mode of ['standard', 'strict']) {
+    const c = new RepCounter({ mode });
+    counts[mode] = run(c, [...stand, ...noEleven, ...noEleven, ...noEleven, [POSES[0], 0, 1500]]).last.count;
+  }
+  assert.deepEqual(counts, { standard: 3, strict: 0 });
+});
+
+test('a shallow lunge and a plank with raised hips are both recognised', () => {
+  const c = new RepCounter({ mode: 'strict' });
+  const highLunge = { ...POSES[3], hip: [0, -28], sh: [15, -27], head: [20, -36] };
+  const pikedPlank = { ...POSES[4], hip: [-4, -28], sh: [20, -23] };
+  const round = POSES.map((p, i) => [i === 3 ? highLunge : i === 4 ? pikedPlank : p, 600, 500]);
+  assert.equal(run(c, [...stand, ...round, ...round]).last.count, 2);
+});
+
+test('works at 3 frames per second (a slow phone)', () => {
+  const c = new RepCounter();
+  let t = 0, prev = POSES[0], last;
+  const slow = 1000 / 3;
+  for (const [pose, moveMs, holdMs] of [...stand, ...reps(3, 800, 1000)]) {
+    for (let e = 0; e < moveMs + holdMs; e += slow, t += slow) last = c.update(toLandmarks(e < moveMs ? lerpPose(prev, pose, e / moveMs) : pose, 0.01, rnd), t, 2);
+    prev = pose;
+  }
+  assert.equal(last.count, 3);
 });
 
 test('a person facing the camera is asked to turn and nothing is counted', () => {

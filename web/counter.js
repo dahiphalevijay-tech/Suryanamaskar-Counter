@@ -5,7 +5,7 @@
 //   k = how high the hips are above the floor
 // The counter follows the person through the 12 steps in order. A round runs from standing, down through at
 // least one floor pose, and back to standing; it is counted when enough of the 12 steps were recognised:
-// 5 for 'easy', 8 for 'standard', all 11 tracked steps for 'strict'.
+// 5 for 'easy', 8 for 'standard', all 12 for 'strict'.
 // Squats and plain forward bends never bring shoulders and hips low together, so they are never counted.
 
 export const DEFAULTS = {
@@ -18,7 +18,7 @@ export const DEFAULTS = {
   calibMs: 1000,    // stand still this long to calibrate
   minBody: 0.25,    // body must fill this fraction of the frame height
   lostMs: 1500,
-  smooth: 0.45,
+  smoothMs: 110,    // time constant for steadying the measurements (same feel on fast and slow phones)
   mode: 'standard',   // 'easy' | 'standard' | 'strict'
   easySteps: 5,       // 'easy' needs at least this many of the 12 steps recognised
   standardSteps: 8,   // 'standard' needs at least this many
@@ -38,26 +38,33 @@ export const DEFAULTS = {
 const RAISE = 0.02;
 // The app works from the side only: the camera must see the person in profile. (Facing the camera, a leg
 // stepping back or hands reaching forward cannot be seen, so the lunges and mountain pose cannot be checked.)
-// These numbers were checked against real side-on recordings.
-const bend = (f) => f.k > 0.45 && f.h < 0.68 && f.reach < 0.4;
-const lunge = (f) => f.k < 0.42 && f.sep > 0.4 && f.h > 0.25;
+// These numbers were tuned on real side-on recordings (ground, terrace and road; barefoot and in shoes).
+const bend = (f) => f.k > 0.45 && f.h < 0.68 && f.reach < 0.4 && f.sep < 0.4;
+// lunge: feet far apart, body low. The hips may stay fairly high in a shallow lunge.
+const lunge = (f) => f.sep > 0.4 && f.k < 0.52 && f.h > 0.25 && f.h < 0.6;
+// plank: feet together, hands far ahead of the feet, hips roughly level with the shoulders.
+// A plank with the hips a little raised is accepted; hips well above the shoulders is the mountain pose.
+const plank = (f) => f.sep < 0.4 && f.reach > 0.5 && f.k > 0.15 && f.k < 0.52 && f.h > 0.28 && f.h < 0.6
+  && f.h - f.k < 0.25 && f.k - f.h < 0.15;
+const mountain = (f) => f.k > 0.45 && f.h < 0.5 && f.reach >= 0.4 && f.k - f.h >= 0.15;
+const prayer = (f) => f.h > 0.85 && f.raise < RAISE;
+const raised = (f) => f.h > 0.8 && f.raise >= RAISE;
 export const STEP_RULES = [
-  (f) => f.h > 0.85 && f.raise < RAISE,                                                  // 1 prayer
-  (f) => f.h > 0.8 && f.raise >= RAISE,                                                  // 2 raised arms
-  bend,                                                                                  // 3 forward bend
-  lunge,                                                                                 // 4 lunge
-  (f) => f.k < 0.42 && f.k > 0.15 && f.h > 0.28 && f.h < 0.6 && f.sep < 0.4 && f.h - f.k < 0.25, // 5 plank
-  (f) => f.h < 0.22 && f.k < 0.42,                                                       // 6 eight-point
-  (f) => f.k < 0.22 && f.h - f.k > 0.18,                                                 // 7 cobra
-  (f) => f.k > 0.45 && f.h < 0.5 && f.reach >= 0.4,                                      // 8 mountain
-  lunge,                                                                                 // 9 lunge, other leg
-  bend,                                                                                  // 10 forward bend
-  null,                                                                                  // 11 raised arms: not tracked
-  (f) => f.h > 0.85 && f.raise < RAISE,                                                  // 12 prayer
+  prayer,                                             // 1 prayer
+  raised,                                             // 2 raised arms
+  bend,                                               // 3 forward bend
+  lunge,                                              // 4 lunge
+  plank,                                              // 5 plank
+  (f) => f.h < 0.22 && f.k < 0.42,                    // 6 eight-point
+  (f) => f.k < 0.22 && f.h - f.k > 0.18,              // 7 cobra
+  mountain,                                           // 8 mountain
+  lunge,                                              // 9 lunge, other leg
+  bend,                                               // 10 forward bend
+  raised,                                             // 11 raised arms
+  prayer,                                             // 12 prayer
 ];
-// Step 11 (raised arms on the way up) is left out of the count: many people go from the forward bend
-// straight to prayer pose. Doing it does no harm; it is simply not looked for.
-export const TRACKED_STEPS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12];
+// The full traditional sequence: all twelve steps are followed, named and checked.
+export const TRACKED_STEPS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 const FLOOR_STEPS = [4, 5, 6, 7, 9];
 
 const VIS = 0.5;
@@ -96,6 +103,7 @@ export class RepCounter {
     this.condSince = { up: null, floor: null };
     this.leftUpAt = null;
     this.lastSeen = null;
+    this.lastT = null;
     this.lastGood = null;
     this.h = 0;
     this.k = 0;
@@ -118,12 +126,13 @@ export class RepCounter {
     const width = L && R && L.visibility >= VIS && R.visibility >= VIS ? Math.abs(L.x - R.x) * aspect / body : 0;
     const buf = this.stanceBuf;
     buf.push({ t, body, feetY, shY: s.shY, shX: s.shX * aspect, width });
-    while (buf.length && t - buf[0].t > o.calibMs) buf.shift();
+    // keep just enough history to cover the stand-still time, however few frames per second the phone manages
+    while (buf.length > 2 && t - buf[1].t >= o.calibMs * 0.9) buf.shift();
     const span = (k) => Math.max(...buf.map((b) => b[k])) - Math.min(...buf.map((b) => b[k]));
     const still = span('shY') < o.stillTol * body && span('feetY') < o.stillTol * body && span('shX') < o.stillTol * body;
     if (!still) { this.stanceBuf = buf.slice(-1); return { held: false, upright, far }; }
     const mean = (k) => buf.reduce((x, b) => x + b[k], 0) / buf.length;
-    const held = buf.length >= 4 && t - buf[0].t >= o.calibMs * 0.9;
+    const held = buf.length >= 3 && t - buf[0].t >= o.calibMs * 0.9;
     return { held, upright, far, body: mean('body'), floor: mean('feetY'), width: mean('width') };
   }
 
@@ -215,7 +224,10 @@ export class RepCounter {
     }
     this.lastSeen = t;
 
-    const a = o.smooth;
+    // smoothing is tied to elapsed time, not to the number of frames, so a slow phone gets no extra delay
+    const dt = this.lastT === null ? 66 : Math.max(1, t - this.lastT);
+    this.lastT = t;
+    const a = 1 - Math.exp(-dt / o.smoothMs);
     if (!this.s) this.s = { shX: sh.x, shY: sh.y, hipX: hip.x, hipY: hip.y };
     else {
       this.s.shX += (sh.x - this.s.shX) * a; this.s.shY += (sh.y - this.s.shY) * a;

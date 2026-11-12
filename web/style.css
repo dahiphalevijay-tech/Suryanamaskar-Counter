@@ -78,3 +78,11 @@ input[type=number] { font:inherit; width:96px; padding:8px 10px; border-radius:1
 .intro-dots span { width:9px; height:9px; border-radius:50%; background:var(--line); }
 .intro-dots span.on { background:var(--sun); }
 #intro .controls { max-width:440px; width:100%; margin:10px auto 0; }
+.sheet { position:fixed; inset:0; z-index:11; background:var(--bg); padding:26px 22px calc(18px + env(safe-area-inset-bottom)); overflow-y:auto; display:flex; flex-direction:column; }
+.sheet > * { max-width:480px; width:100%; margin-left:auto; margin-right:auto; }
+.sheet h2 { color:var(--sun); font-size:24px; font-weight:700; margin:6px auto 10px; }
+.sheet p { margin:8px auto; font-size:17px; }
+.sheet ul { margin:4px auto 8px; padding-left:22px; font-size:17px; }
+.sheet li { margin:7px 0; }
+.sheet .strong { font-weight:700; }
+.sheet .note { font-size:14px; flex:1; }

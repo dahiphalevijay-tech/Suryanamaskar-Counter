@@ -99,6 +99,7 @@
       <select id="theme"><option value="system" data-t="themeSystem">Follow phone</option><option value="light" data-t="themeLight">Light</option><option value="dark" data-t="themeDark">Dark</option></select></label>
     <label class="row"><span data-t="showNumbers">Show tuning numbers</span><input type="checkbox" id="optNumbers"></label>
     <button id="howTo" class="wide-btn" data-t="howTo">How to use</button>
+    <button id="healthBtn" class="wide-btn" data-t="healthBtn">Health and safety</button>
     <p class="private" data-t="privacy">Nothing is recorded. The camera picture never leaves your phone.</p>
   </section>
 </main>
@@ -108,6 +109,16 @@
   <button data-tab="learn" data-t="learn">Learn</button>
   <button data-tab="progress" data-t="progress">Progress</button>
 </nav>
+<div id="health" class="sheet" hidden>
+  <h2 data-t="hTitle">Before you begin</h2>
+  <p data-t="hIntro"></p>
+  <ul>
+    <li data-t="h1"></li><li data-t="h2"></li><li data-t="h3"></li><li data-t="h4"></li><li data-t="h5"></li>
+  </ul>
+  <p class="strong" data-t="hStop"></p>
+  <p class="note" data-t="hNot"></p>
+  <div class="controls"><button id="healthOk" class="primary" data-t="hAgree">I understand</button></div>
+</div>
 <div id="intro" hidden>
   <canvas id="introArt" width="640" height="460"></canvas>
   <h2 id="introTitle"></h2>

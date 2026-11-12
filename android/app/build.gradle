@@ -21,6 +21,10 @@ android {
             keyPassword 'testbuild'
         }
     }
+    buildTypes {
+        // Test builds are not debuggable, so the app's stored data cannot be read out with developer tools.
+        debug { debuggable false }
+    }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
