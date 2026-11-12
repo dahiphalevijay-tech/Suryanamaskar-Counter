@@ -163,6 +163,7 @@ public class MainActivity extends Activity {
             if (p.endsWith(".json")) return "application/json";
             if (p.endsWith(".svg")) return "image/svg+xml";
             if (p.endsWith(".png")) return "image/png";
+            if (p.endsWith(".jpg")) return "image/jpeg";
             return "application/octet-stream";
         }
     }
@@ -203,21 +204,38 @@ public class MainActivity extends Activity {
             }
         }
 
+        /** Switches the daily reminder on or off and stores what it should say. */
+        @JavascriptInterface
+        public void setReminder(final boolean enabled, final int hour, final int minute,
+                                final String title, final String text, final String lastDay) {
+            getSharedPreferences(ReminderReceiver.PREFS, MODE_PRIVATE).edit()
+                    .putBoolean("enabled", enabled).putInt("hour", hour).putInt("minute", minute)
+                    .putString("title", title).putString("text", text).putString("lastDay", lastDay == null ? "" : lastDay)
+                    .apply();
+            runOnUiThread(() -> {
+                if (enabled && Build.VERSION.SDK_INT >= 33
+                        && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                    requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 2);
+                }
+                ReminderReceiver.schedule(MainActivity.this);
+            });
+        }
+
         /** Opens the phone's share sheet with the summary picture (WhatsApp status, Instagram and so on). */
         @JavascriptInterface
-        public void shareImage(String base64Png, final String text) {
+        public void shareImage(String base64Image, final String text) {
             try {
-                byte[] png = Base64.decode(base64Png, Base64.DEFAULT);
+                byte[] png = Base64.decode(base64Image, Base64.DEFAULT);
                 File dir = new File(getCacheDir(), "share");
                 if (!dir.exists() && !dir.mkdirs()) return;
-                File file = new File(dir, "suryanamaskar.png");
+                File file = new File(dir, "suryanamaskar.jpg");
                 try (FileOutputStream out = new FileOutputStream(file)) {
                     out.write(png);
                 }
                 final Uri uri = FileProvider.getUriForFile(MainActivity.this, getPackageName() + ".files", file);
                 runOnUiThread(() -> {
                     Intent send = new Intent(Intent.ACTION_SEND);
-                    send.setType("image/png");
+                    send.setType("image/jpeg");
                     send.putExtra(Intent.EXTRA_STREAM, uri);
                     if (text != null) send.putExtra(Intent.EXTRA_TEXT, text);
                     send.setClipData(ClipData.newRawUri("", uri));

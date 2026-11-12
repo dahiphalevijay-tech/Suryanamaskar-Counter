@@ -1,5 +1,8 @@
 export const STR = {
   en: {
+    secShort: 's', paceLabel: 'per round', streakDays: '{n}-day streak', remind: 'Daily reminder', remindTime: 'Reminder time',
+    remText: 'Time for your suryanamaskar', remStreak: 'Keep your {n}-day streak going',
+    g5t: 'About you (optional)', g5: 'Your weight and height are used only to estimate calories. They stay on this phone, and you can change them later in Settings.',
     healthBtn: 'Health and safety', hTitle: 'Before you begin', hAgree: 'I understand',
     hIntro: 'Suryanamaskar is a vigorous exercise. Please talk to your doctor before starting if any of these apply to you:',
     h1: 'Pregnancy', h2: 'Heart disease, high blood pressure, or a past stroke',
@@ -43,6 +46,9 @@ export const STR = {
     notCounted: 'Not counted: steps were missed',
   },
   mr: {
+    secShort: 'से', paceLabel: 'प्रति फेरी', streakDays: 'सलग {n} दिवस', remind: 'रोजची आठवण', remindTime: 'आठवणीची वेळ',
+    remText: 'सूर्यनमस्काराची वेळ झाली', remStreak: 'सलग {n} दिवसांची साखळी चालू ठेवा',
+    g5t: 'तुमच्याबद्दल (ऐच्छिक)', g5: 'वजन आणि उंची फक्त कॅलरीचा अंदाज काढण्यासाठी वापरली जाते. ही माहिती याच फोनवर राहते आणि नंतर सेटिंग्जमध्ये बदलता येते.',
     healthBtn: 'आरोग्य आणि सुरक्षितता', hTitle: 'सुरू करण्यापूर्वी', hAgree: 'मला समजले',
     hIntro: 'सूर्यनमस्कार हा जोरकस व्यायाम आहे. खालीलपैकी काही लागू असल्यास सुरू करण्यापूर्वी डॉक्टरांचा सल्ला घ्या:',
     h1: 'गरोदरपणा', h2: 'हृदयविकार, उच्च रक्तदाब किंवा पूर्वी आलेला पक्षाघात (स्ट्रोक)',
@@ -86,6 +92,9 @@ export const STR = {
     notCounted: 'मोजले नाही: काही पायऱ्या चुकल्या',
   },
   hi: {
+    secShort: 'से', paceLabel: 'प्रति चक्र', streakDays: 'लगातार {n} दिन', remind: 'रोज़ का रिमाइंडर', remindTime: 'रिमाइंडर का समय',
+    remText: 'सूर्यनमस्कार का समय हो गया', remStreak: 'लगातार {n} दिनों का सिलसिला जारी रखें',
+    g5t: 'आपके बारे में (वैकल्पिक)', g5: 'वज़न और ऊँचाई केवल कैलोरी का अनुमान लगाने के लिए हैं. ये इसी फ़ोन पर रहते हैं और बाद में सेटिंग्स में बदले जा सकते हैं.',
     healthBtn: 'स्वास्थ्य और सुरक्षा', hTitle: 'शुरू करने से पहले', hAgree: 'ठीक है, समझ लिया',
     hIntro: 'सूर्यनमस्कार एक ज़ोरदार व्यायाम है. इनमें से कुछ भी लागू हो तो शुरू करने से पहले डॉक्टर से सलाह लें:',
     h1: 'गर्भावस्था', h2: 'हृदय रोग, उच्च रक्तचाप या पहले हुआ स्ट्रोक (लकवा)',

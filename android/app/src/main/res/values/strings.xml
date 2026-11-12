@@ -2,4 +2,5 @@
 <resources>
     <string name="app_name">Suryanamaskar</string>
     <color name="icon_bg">#F29B45</color>
+    <string name="reminder_channel">Daily reminder</string>
 </resources>

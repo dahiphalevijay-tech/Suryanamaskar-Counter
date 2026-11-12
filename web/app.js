@@ -2,6 +2,10 @@ import { POSES, POSE_INFO, lerpPose } from './poses.js';
 import { RepCounter, TRACKED_STEPS } from './counter.js';
 import { STR, SPEECH_LANG, MANTRAS } from './i18n.js';
 import { drawShareCard, shareCard } from './share.js';
+import { pickPerson } from './person.js';
+
+const sunrisePhoto = new Image(); sunrisePhoto.src = './img/sunrise.jpg';
+const guidePhoto = new Image(); guidePhoto.src = './img/guide.jpg';
 import { dayKey, kcalFor, bmi, summarize } from './stats.js';
 
 const $ = (id) => document.getElementById(id);
@@ -187,6 +191,8 @@ let lastSeenAt = 0;
 let lastActiveAt = 0;
 let startedAt = 0;
 let lastStep = 0;
+let followed = null;        // centre of the person being followed
+let followedAt = 0;
 const guide = $('guide');
 const gctx = guide.getContext('2d');
 const dots = $('dots');
@@ -246,7 +252,8 @@ async function loadModel(kind = startingModel()) {
   }
   const make = (delegate) => vision.PoseLandmarker.createFromOptions(visionFiles, {
     baseOptions: { modelAssetPath: `./vendor/pose_landmarker_${kind}.task`, delegate },
-    runningMode: 'VIDEO', numPoses: 1,
+    // on phones fast enough for the full model, look for two people so a bystander can be told apart
+    runningMode: 'VIDEO', numPoses: kind === 'full' ? 2 : 1,
     // lower than the defaults so the person is not dropped when the face is hidden (forward bend, mountain)
     minPoseDetectionConfidence: 0.3, minPosePresenceConfidence: 0.3, minTrackingConfidence: 0.3,
   });
@@ -286,8 +293,9 @@ async function start() {
   Object.assign(voiceState, { stage: '', stageAt: 0, target: 0, importantAt: 0, calibSeq: 0 });
   startedAt = lastSeenAt = lastActiveAt = performance.now();
   lastStep = 0;
+  followed = null;
   $('done').hidden = true;
-  guide.hidden = true;
+  $('guidePanel').hidden = true;
   $('count').textContent = '0';
   $('idle').hidden = true; $('live').hidden = false;
   running = true;
@@ -337,6 +345,7 @@ function stop(spoken = false) {
   sess = null;
   if (spoken && sessionCount > 0) say(`${t('vFinished')}. ${sessionCount}`, true);
   renderLastSummary();
+  syncReminder();
   $('live').hidden = true;
   resetStart();
   renderProgress();
@@ -387,12 +396,18 @@ function showDone(sn) {
 }
 function buildShareCard(sn) {
   const card = $('shareCard');
-  const stats = sessionStats(sn).map((x) => ({ label: x.label, value: x.value.replace(` ${t('perRound')}`, ' s') }));
-  if (stats.length < 3) stats.push({ label: t('streakLabel'), value: String(currentStreak()) });
+  const stats = [];
+  if (sn.rounds) {
+    stats.push({ label: t('duration'), value: fmtDur(sn.ms) });
+    stats.push({ label: t('paceLabel'), value: `${Math.round(sn.ms / 1000 / sn.rounds)} ${t('secShort')}` });
+  }
+  if (sn.kcal) stats.push({ label: t('iKcal'), value: `${Math.round(sn.kcal)} kcal` });
+  const streak = currentStreak();
   drawShareCard(card, {
-    count: sn.n, label: t('iTotal'), date: new Date(sn.t).toLocaleDateString(SPEECH_LANG[lang], { day: 'numeric', month: 'long', year: 'numeric' }),
-    stats, footer: t('appName'),
-  });
+    app: t('appName'), count: sn.n, label: t('iTotal'),
+    date: new Date(sn.t).toLocaleDateString(SPEECH_LANG[lang], { day: 'numeric', month: 'long', year: 'numeric' }),
+    stats, streakText: streak > 1 ? t('streakDays').replace('{n}', streak) : '',
+  }, sunrisePhoto);
   return card;
 }
 $('shareBtn').addEventListener('click', () => {
@@ -425,7 +440,9 @@ function loop(now) {
       input = small;
     }
     const res = landmarker.detectForVideo(input, now);
-    lm = res.landmarks && res.landmarks[0];
+    const pick = pickPerson(res.landmarks, followed);
+    lm = pick.lm;
+    if (lm) { followed = pick.centre; followedAt = now; } else if (now - followedAt > 3000) followed = null;
     const dt = performance.now() - t0;
     inferN += 1;
     if (inferN > 5) inferMs += (dt - inferMs) / Math.min(inferN - 5, 30);
@@ -457,20 +474,27 @@ function loop(now) {
     vctx.restore();
   }
 
-  // step guide: the small figure shows the next step, the dots show which steps were recognised
+  // step guide below the picture: the figure and name of the next step; the dots show the steps recognised
   if (out.calibrated && out.visible && out.stage !== 'turn') {
     const target = out.next;
     const info = POSE_INFO[target - 1];
+    const name = lang === 'en' ? info.en : info.dev;
     const phase = (now % 1700) / 1700;
     drawFigure(gctx, lerpPose(POSES[out.step - 1], POSES[target - 1], phase / 0.55), guide.width, guide.height);
-    guide.hidden = false;
+    $('guidePanel').hidden = false;
+    $('guideStep').textContent = `${target} / 12`;
+    $('guideName').textContent = name;
+    $('guideBreath').textContent = t(info.breath);
     const dir = (mirror ? -1 : 1) * (out.facing || 1);
     guide.style.transform = dir < 0 ? 'scaleX(-1)' : '';
-    if (now > noticeUntil) $('hint').textContent = `${target}. ${lang === 'en' ? info.en : info.dev} · ${t(info.breath)}`;
+    if (now > noticeUntil) $('hint').textContent = `${target}. ${name} · ${t(info.breath)}`;
     [...dots.children].forEach((d) => { const n = Number(d.dataset.step); d.className = out.seen[n] ? 'on' : (n === target ? 'next' : ''); });
   } else {
-    guide.hidden = true;
-    if (now > noticeUntil || out.stage === 'turn') $('hint').textContent = t(out.stage);
+    $('guidePanel').hidden = true;
+    // only setup messages are shown here; while the person is walking to or from the phone the last one stays
+    const setup = ['far', 'stand', 'calibrating', 'turn', 'lost'].includes(out.stage);
+    if (setup && (now > noticeUntil || out.stage === 'turn')) $('hint').textContent = t(out.stage);
+    else if (!out.calibrated) $('hint').textContent = t('stand');
     if (out.stage === 'turn') [...dots.children].forEach((d) => { d.className = ''; });
   }
   if (out.rejected) {
@@ -564,7 +588,7 @@ setInterval(() => { if (dayKey() !== shownDay) refreshScreens(); }, 30000);
 
 // ---------- settings ----------
 $('lang').value = lang;
-$('lang').addEventListener('change', () => { lang = $('lang').value; store.set('lang', lang); applyLang(); });
+$('lang').addEventListener('change', () => { lang = $('lang').value; store.set('lang', lang); applyLang(); syncReminder(); });
 for (const [id, def] of [['optNumbers', false], ['mantra', false], ['autoFinish', true]]) {
   $(id).checked = store.get(id, def);
   $(id).addEventListener('change', () => store.set(id, $(id).checked));
@@ -596,11 +620,33 @@ document.querySelectorAll('#period button').forEach((b) => b.addEventListener('c
 
 $('strictness').addEventListener('change', () => { counter.o.mode = $('strictness').value; });
 
+// ---------- daily reminder (only inside the Android app) ----------
+const canRemind = () => !!(window.AndroidBridge && window.AndroidBridge.setReminder);
+function lastPractisedDay() {
+  const days = store.get('days', {});
+  return Object.keys(days).filter((k) => days[k] > 0).sort().pop() || '';
+}
+function syncReminder() {
+  if (!canRemind()) return;
+  $('remindTimeRow').hidden = !$('remind').checked;
+  const [hh, mm] = ($('remindTime').value || '06:00').split(':').map(Number);
+  const streak = currentStreak();
+  const text = streak > 1 ? t('remStreak').replace('{n}', streak) : t('remText');
+  try { window.AndroidBridge.setReminder($('remind').checked, hh || 0, mm || 0, t('appName'), text, lastPractisedDay()); } catch (e) { console.error(e); }
+}
+if (canRemind()) {
+  $('remindRow').hidden = false;
+  $('remind').checked = store.get('remind', false);
+  $('remindTime').value = store.get('remindTime', '06:00');
+  $('remind').addEventListener('change', () => { store.set('remind', $('remind').checked); syncReminder(); });
+  $('remindTime').addEventListener('change', () => { store.set('remindTime', $('remindTime').value); syncReminder(); });
+}
+
 // ---------- first-run guide ----------
 const introArt = $('introArt');
 const ictx = introArt.getContext('2d');
 let introPage = 0;
-const INTRO = [['g1t', 'g1'], ['g2t', 'g2'], ['g3t', 'g3'], ['g4t', 'g4']];
+const INTRO = [['g1t', 'g1'], ['g2t', 'g2'], ['g3t', 'g3'], ['g4t', 'g4'], ['g5t', 'g5']];
 function drawIntro(page) {
   const W = introArt.width, H = introArt.height;
   const css = getComputedStyle(document.documentElement);
@@ -620,8 +666,16 @@ function drawIntro(page) {
   const phone = (x) => { ictx.fillStyle = ink; ictx.beginPath(); ictx.roundRect(x, ground - 96, 46, 96, 9); ictx.fill();
     ictx.fillStyle = sun2; ictx.beginPath(); ictx.arc(x + 23, ground - 80, 5, 0, Math.PI * 2); ictx.fill(); };
   if (page === 0) {
-    ictx.fillStyle = sun2; ictx.beginPath(); ictx.arc(W / 2, ground - 150, 120, 0, Math.PI * 2); ictx.fill();
-    figure(POSES[1], W / 2 + 10, 4);
+    ictx.clearRect(0, 0, W, H);
+    if (guidePhoto.complete && guidePhoto.naturalWidth) {
+      ictx.save();
+      ictx.beginPath(); ictx.roundRect((W - H) / 2, 0, H, H, 28); ictx.clip();
+      ictx.drawImage(guidePhoto, (W - H) / 2, 0, H, H);
+      ictx.restore();
+    } else {
+      ictx.fillStyle = sun2; ictx.beginPath(); ictx.arc(W / 2, ground - 150, 120, 0, Math.PI * 2); ictx.fill();
+      figure(POSES[1], W / 2 + 10, 4);
+    }
   } else if (page === 1) {
     phone(60);
     ictx.strokeStyle = ink; ictx.lineWidth = 3; ictx.setLineDash([12, 10]);
@@ -646,14 +700,24 @@ function showIntro(page) {
   $('introTitle').textContent = t(INTRO[page][0]);
   $('introText').textContent = t(INTRO[page][1]);
   $('introLangRow').hidden = page !== 0;
+  $('introProfile').hidden = page !== 4;
+  introArt.hidden = page === 4;
+  $('introText').style.flex = page === 4 ? 'none' : '';
   $('introNext').textContent = t(page === INTRO.length - 1 ? 'getStarted' : 'next');
-  $('introSkip').hidden = page === INTRO.length - 1;
   const dotsEl = $('introDots');
   dotsEl.textContent = '';
   INTRO.forEach((_, i) => { const d = document.createElement('span'); if (i === page) d.className = 'on'; dotsEl.append(d); });
-  drawIntro(page);
+  if (page !== 4) drawIntro(page);
 }
-function openIntro() { $('introLang').value = lang; $('intro').hidden = false; showIntro(0); }
+function openIntro() {
+  $('introLang').value = lang;
+  $('introWeight').value = $('weight').value; $('introHeight').value = $('height').value;
+  $('intro').hidden = false; showIntro(0);
+}
+guidePhoto.addEventListener('load', () => { if (!$('intro').hidden && introPage === 0) drawIntro(0); });
+for (const [from, to] of [['introWeight', 'weight'], ['introHeight', 'height']]) {
+  $(from).addEventListener('input', () => { $(to).value = $(from).value; store.set(to, $(to).value); renderProfile(); });
+}
 function closeIntro() { $('intro').hidden = true; store.set('introSeen', true); if (!store.get('healthSeen', false)) openHealth(); }
 
 // ---------- health and safety notice ----------
@@ -667,6 +731,7 @@ $('howTo').addEventListener('click', openIntro);
 
 applyTheme();
 applyLang();
+syncReminder();
 if (!store.get('introSeen', false)) openIntro();
 else if (!store.get('healthSeen', false)) openHealth();
 renderLastSummary();

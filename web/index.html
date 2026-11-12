@@ -33,9 +33,12 @@
         <div class="count" id="count">0</div>
         <div class="hint" id="hint"></div>
         <div id="tuneBox" hidden></div>
-        <canvas id="guide" width="240" height="210" hidden></canvas>
       </div>
       <div class="dots" id="dots"></div>
+      <div class="guide-panel" id="guidePanel" hidden>
+        <canvas id="guide" width="320" height="250"></canvas>
+        <div><span id="guideStep"></span><strong id="guideName"></strong><em id="guideBreath"></em></div>
+      </div>
       <div class="controls">
         <button id="minus" aria-label="minus one">−1</button>
         <button id="stop" class="primary" data-t="stop">Finish</button>
@@ -85,6 +88,8 @@
     <p class="note" id="bmi"></p>
     <label class="row"><span data-t="language">Language</span>
       <select id="lang"><option value="en">English</option><option value="mr">मराठी</option><option value="hi">हिन्दी</option></select></label>
+    <label class="row" id="remindRow" hidden><span data-t="remind">Daily reminder</span><input type="checkbox" id="remind"></label>
+    <label class="row" id="remindTimeRow" hidden><span data-t="remindTime">Reminder time</span><input type="time" id="remindTime" value="06:00"></label>
     <label class="row"><span data-t="strictness">Step checking</span>
       <select id="strictness"><option value="easy" data-t="easy">Easy</option><option value="standard" selected data-t="standard">Standard</option><option value="strict" data-t="strict">Strict</option></select></label>
     <label class="row"><span data-t="voiceMode">Voice</span>
@@ -123,6 +128,10 @@
   <canvas id="introArt" width="640" height="460"></canvas>
   <h2 id="introTitle"></h2>
   <p id="introText"></p>
+  <div id="introProfile" hidden>
+    <label class="row"><span data-t="weight">Weight (kg)</span><input type="number" id="introWeight" inputmode="decimal" min="20" max="250" step="0.5" placeholder="—"></label>
+    <label class="row"><span data-t="height">Height (cm)</span><input type="number" id="introHeight" inputmode="numeric" min="90" max="230" step="1" placeholder="—"></label>
+  </div>
   <label class="row" id="introLangRow"><span data-t="language">Language</span>
     <select id="introLang"><option value="en">English</option><option value="mr">मराठी</option><option value="hi">हिन्दी</option></select></label>
   <div class="intro-dots" id="introDots"></div>

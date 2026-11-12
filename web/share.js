@@ -1,67 +1,75 @@
 // Draws the shareable summary card (1080 x 1920, the size WhatsApp status and other stories use) and shares it.
 
-export function drawShareCard(canvas, d) {
+const font = (px, weight = 700) => `${weight} ${px}px system-ui, "Noto Sans Devanagari", sans-serif`;
+function fit(c, text, maxW, px, weight = 700) {
+  let s = px;
+  do { c.font = font(s, weight); s -= 2; } while (c.measureText(text).width > maxW && s > 22);
+}
+
+// d: { app, date, count, label, stats: [{value, label}], streakText }.  photo: the sunrise picture, if loaded.
+export function drawShareCard(canvas, d, photo) {
   const c = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
-  const horizon = 860;
-  const font = (px, weight = 700) => `${weight} ${px}px system-ui, "Noto Sans Devanagari", sans-serif`;
-  c.fillStyle = '#B8430F'; c.fillRect(0, 0, W, H);
+  const DARK = '#1F0D06';
+  c.fillStyle = DARK; c.fillRect(0, 0, W, H);
 
-  // rising sun and rays
-  c.fillStyle = '#FFC861';
-  c.beginPath(); c.arc(W / 2, horizon, 300, Math.PI, 0); c.fill();
-  c.strokeStyle = '#FFC861'; c.lineWidth = 26; c.lineCap = 'round';
-  for (let i = 1; i < 12; i++) {
-    const a = Math.PI + (i * Math.PI) / 12;
-    c.beginPath(); c.moveTo(W / 2 + 350 * Math.cos(a), horizon + 350 * Math.sin(a));
-    c.lineTo(W / 2 + 430 * Math.cos(a), horizon + 430 * Math.sin(a)); c.stroke();
+  if (photo && photo.complete && photo.naturalWidth) {
+    const side = 1200;                                   // the square photo, slightly enlarged, centred
+    c.drawImage(photo, (W - side) / 2, 0, side, side);
+  } else {
+    const sky = c.createLinearGradient(0, 0, 0, 1200);
+    sky.addColorStop(0, '#E9B79C'); sky.addColorStop(0.5, '#F29B45'); sky.addColorStop(1, '#B8430F');
+    c.fillStyle = sky; c.fillRect(0, 0, W, 1200);
   }
-  c.fillStyle = '#7A2E0E'; c.fillRect(0, horizon, W, H - horizon);
+  // fade the picture into the dark lower half
+  const fade = c.createLinearGradient(0, 930, 0, 1215);
+  fade.addColorStop(0, 'rgba(31,13,6,0)'); fade.addColorStop(1, DARK);
+  c.fillStyle = fade; c.fillRect(0, 930, W, 290);
+  // a soft shade behind the title
+  const top = c.createLinearGradient(0, 0, 0, 220);
+  top.addColorStop(0, 'rgba(31,13,6,.45)'); top.addColorStop(1, 'rgba(31,13,6,0)');
+  c.fillStyle = top; c.fillRect(0, 0, W, 220);
 
-  // figure with raised arms, standing on the horizon
-  c.save();
-  c.translate(W / 2, horizon + 14); c.scale(7.4, 7.4); c.translate(-54, -88);
-  c.strokeStyle = '#FFF4E0'; c.fillStyle = '#FFF4E0'; c.lineCap = 'round'; c.lineJoin = 'round';
-  const line = (w, draw) => { c.lineWidth = w; c.beginPath(); draw(); c.stroke(); };
-  line(7, () => { c.moveTo(54, 52); c.lineTo(54, 71); });
-  line(4.4, () => { c.moveTo(52, 71); c.lineTo(51.4, 88); c.moveTo(56, 71); c.lineTo(56.6, 88); });
-  line(3.3, () => { c.moveTo(50.4, 54); c.quadraticCurveTo(42, 42, 53.2, 27); c.moveTo(57.6, 54); c.quadraticCurveTo(66, 42, 54.8, 27); });
-  c.beginPath(); c.arc(54, 43.5, 4.9, 0, Math.PI * 2); c.fill();
-  c.restore();
+  c.fillStyle = '#FFF4E0';
+  c.textAlign = 'left'; c.font = font(54, 800); c.fillText(d.app, 64, 112);
+  c.textAlign = 'right'; c.font = font(38, 600); c.fillText(d.date, W - 64, 108);
 
   c.textAlign = 'center';
-  c.fillStyle = '#FFF4E0';
-  c.font = font(300, 800); c.fillText(String(d.count), W / 2, horizon + 330);
-  c.font = font(64, 700); c.fillText(d.label, W / 2, horizon + 430);
-  c.fillStyle = '#FFC861';
-  c.font = font(42, 500); c.fillText(d.date, W / 2, horizon + 505);
+  c.fillStyle = '#FFF4E0'; c.font = font(320, 800); c.fillText(String(d.count), W / 2, 1470);
+  c.fillStyle = '#FFD98A'; fit(c, d.label, W - 160, 62); c.fillText(d.label, W / 2, 1560);
 
   const stats = d.stats.slice(0, 3);
   const colW = W / Math.max(1, stats.length);
   stats.forEach((st, i) => {
     const x = colW * (i + 0.5);
-    c.fillStyle = '#FFF4E0'; c.font = font(68, 700); c.fillText(st.value, x, horizon + 690);
-    c.fillStyle = '#FFC861'; c.font = font(36, 500); c.fillText(st.label, x, horizon + 745);
+    c.fillStyle = '#FFF4E0'; fit(c, st.value, colW - 50, 66); c.fillText(st.value, x, 1690);
+    c.fillStyle = '#C9A27F'; fit(c, st.label, colW - 40, 34, 500); c.fillText(st.label, x, 1742);
   });
-  c.fillStyle = '#FFC861'; c.font = font(46, 700); c.fillText(d.footer, W / 2, H - 90);
+
+  if (d.streakText) {
+    c.font = font(42, 800);
+    const w = Math.max(360, c.measureText(d.streakText).width + 110);
+    c.fillStyle = '#F7A93B'; c.beginPath(); c.roundRect((W - w) / 2, 1796, w, 84, 42); c.fill();
+    c.fillStyle = DARK; c.fillText(d.streakText, W / 2, 1853);
+  }
 }
 
 // Hands the card to the phone's share sheet (WhatsApp status, Instagram and so on).
 export async function shareCard(canvas, text) {
-  const dataUrl = canvas.toDataURL('image/png');
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
   try {
     if (window.AndroidBridge && window.AndroidBridge.shareImage) {
       window.AndroidBridge.shareImage(dataUrl.split(',')[1], text);
       return 'app';
     }
-    const blob = await new Promise((res) => canvas.toBlob(res, 'image/png'));
-    const file = new File([blob], 'suryanamaskar.png', { type: 'image/png' });
+    const blob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', 0.9));
+    const file = new File([blob], 'suryanamaskar.jpg', { type: 'image/jpeg' });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       await navigator.share({ files: [file], text });
       return 'web';
     }
     const a = document.createElement('a');
-    a.href = dataUrl; a.download = 'suryanamaskar.png';
+    a.href = dataUrl; a.download = 'suryanamaskar.jpg';
     document.body.append(a); a.click(); a.remove();
     return 'download';
   } catch (e) {

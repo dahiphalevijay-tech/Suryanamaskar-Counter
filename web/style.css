@@ -49,7 +49,6 @@ input[type=checkbox] { width:22px; height:22px; accent-color:var(--sun); }
 .bars { display:flex; align-items:flex-end; gap:4px; height:120px; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:10px 8px 6px; }
 .bars div { flex:1; min-width:0; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; height:100%; font-size:10px; color:var(--muted); white-space:nowrap; }
 .bars i { display:block; width:100%; background:var(--sun2); border-radius:4px 4px 0 0; min-height:2px; }
-#guide { position:absolute; left:8px; bottom:52px; width:36%; max-width:170px; height:auto; background:var(--guide); border-radius:12px; }
 .dots { display:flex; gap:5px; margin:10px 2px 0; }
 .dots span { flex:1; height:8px; border-radius:4px; background:var(--line); }
 .dots span.on { background:var(--sun); }
@@ -86,3 +85,12 @@ input[type=number] { font:inherit; width:96px; padding:8px 10px; border-radius:1
 .sheet li { margin:7px 0; }
 .sheet .strong { font-weight:700; }
 .sheet .note { font-size:14px; flex:1; }
+.guide-panel { display:flex; align-items:center; gap:14px; margin:10px 0 0; background:var(--card); border:1px solid var(--line); border-radius:16px; padding:8px 12px; }
+#guide { width:46%; height:auto; flex:none; }
+.guide-panel div { display:flex; flex-direction:column; min-width:0; }
+.guide-panel span { color:var(--muted); font-weight:700; }
+.guide-panel strong { font-size:22px; line-height:1.25; }
+.guide-panel em { font-style:normal; font-weight:700; color:var(--sun); font-size:18px; margin-top:4px; }
+input[type=time] { font:inherit; padding:8px 10px; border-radius:10px; border:1px solid var(--line); background:var(--card); color:var(--ink); }
+#introProfile { max-width:440px; width:100%; margin:18px auto auto; }
+#introArt[hidden] + h2 { margin-top:40px; }
