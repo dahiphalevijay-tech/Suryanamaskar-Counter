@@ -39,7 +39,7 @@ export const STR = {
     loading: 'Loading the pose detector…', lost: 'Cannot see you. Keep your whole body in the frame.',
     far: 'Step back until your whole body is visible.', stand: 'Stand straight and still.', turn: 'Turn sideways. The camera must see you from the side.',
     calibrating: 'Hold still…', up: 'Standing', down: 'Going down', floor: 'Floor poses', rise: 'Coming up',
-    done: 'Target reached!', in: 'Breathe in', out: 'Breathe out', hold: 'Hold',
+    done: 'Target reached!', in: 'Breathe in', out: 'Breathe out', hold: 'Hold your breath',
     camError: 'Could not open the camera. Allow camera permission and try again.',
     modelError: 'Could not load the pose detector.',
     strictness: 'Step checking', easy: 'Easy: 5 steps', standard: 'Standard: 8 steps', strict: 'Strict: every step',
