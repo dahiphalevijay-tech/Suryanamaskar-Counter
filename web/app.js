@@ -6,7 +6,11 @@ import { pickPerson } from './person.js';
 
 const sunrisePhoto = new Image(); sunrisePhoto.src = './img/sunrise.jpg';
 const guidePhoto = new Image(); guidePhoto.src = './img/guide.jpg';
-import { dayKey, kcalFor, bmi, summarize } from './stats.js';
+import { dayKey, kcalFor, bmi, summarize, kcalSince, mergeProgress } from './stats.js';
+import { startPlan, evaluatePlan, todayPlan } from './plan.js';
+
+// Where feedback emails go. The Send feedback button stays hidden until this is filled in.
+const FEEDBACK_EMAIL = '';
 
 const $ = (id) => document.getElementById(id);
 const store = {
@@ -22,6 +26,8 @@ function applyLang() {
   document.querySelectorAll('[data-t]').forEach((el) => { el.textContent = t(el.dataset.t); });
   $('play').textContent = t(playing ? 'pause' : 'play');
   showPose(Math.round(animPos) % 12);
+  document.querySelectorAll('#planGoal option').forEach((o) => { if (Number(o.value)) o.textContent = t('planGoalOpt').replace('{n}', o.value); });
+  document.querySelectorAll('#setRest option').forEach((o) => { o.textContent = `${o.value} ${t('secShort')}`; });
   renderProgress();
   renderProfile();
 }
@@ -56,6 +62,14 @@ function renderProgress() {
   if (!days[dayKey(d)]) d.setDate(d.getDate() - 1);
   while (days[dayKey(d)] > 0) { streak += 1; d.setDate(d.getDate() - 1); }
   $('sStreak').textContent = streak;
+  renderPlan(days);
+  // calories: sessions saved before the weight was entered are worked out from the weight known now
+  const w = Number($('weight').value);
+  const withKcal = sessions.map((x) => (x.kcal ? x : { ...x, kcal: kcalFor(w, x.ms, x.rounds) }));
+  $('kToday').textContent = Math.round(kcalSince(withKcal, 0));
+  $('kWeek').textContent = Math.round(kcalSince(withKcal, 6));
+  $('kMonth').textContent = Math.round(kcalSince(withKcal, 29));
+  $('kAdd').hidden = !!w;
 
   const sum = summarize(days, sessions, period);
   const bars = $('bars');
@@ -91,6 +105,24 @@ function renderProgress() {
     row(t('iKcal'), sum.kcal ? `${Math.round(sum.kcal)} ${t('kcal')}` : t('addWeight'));
     row(t('iMissed'), sum.missed ? `${poseName(sum.missed.step)} (${sum.missed.missed} ${t('of')} ${sum.missed.rounds} ${t('rounds')})` : t('iNoMiss'));
   } else wide(t('sinceUpdate'));
+}
+
+// The gradual daily plan: shown on the home screen, and used as the target for the next practice.
+function planToday(days = store.get('days', {})) {
+  let plan = store.get('plan', null);
+  if (!plan) return null;
+  const next = evaluatePlan(plan, days, dayKey());
+  if (next !== plan) { plan = next; store.set('plan', plan); }
+  return todayPlan(plan, days, dayKey());
+}
+function renderPlan(days) {
+  const p = planToday(days);
+  $('planLine').hidden = !p;
+  $('targetRow').hidden = !!p || Number($('sets').value) > 0;
+  $('setRows').hidden = !Number($('sets').value);
+  if (!p) return;
+  const head = t(p.rest ? 'planRest' : 'planToday').replace('{n}', p.target);
+  $('planLine').textContent = p.remaining ? `${head} · ${t('planLeft').replace('{n}', p.remaining)}` : `${t('planDone')} ✓`;
 }
 
 function renderLastSummary() {
@@ -193,6 +225,9 @@ let startedAt = 0;
 let lastStep = 0;
 let followed = null;        // centre of the person being followed
 let followedAt = 0;
+let sessionTarget = 0;      // rounds aimed for in this practice (0 = none)
+let sets = null;            // { n, per, restMs, restUntil, said10 } when practising in sets
+let finishAt = 0;
 const guide = $('guide');
 const gctx = guide.getContext('2d');
 const dots = $('dots');
@@ -294,6 +329,13 @@ async function start() {
   startedAt = lastSeenAt = lastActiveAt = performance.now();
   lastStep = 0;
   followed = null;
+  finishAt = 0;
+  const nSets = Number($('sets').value);
+  sets = nSets ? { n: nSets, per: Number($('setRounds').value), restMs: Number($('setRest').value) * 1000, restUntil: 0, said10: false } : null;
+  const plan = planToday();
+  sessionTarget = sets ? sets.n * sets.per : plan ? plan.remaining : Number($('target').value);
+  $('restBox').hidden = true;
+  showSetLabel();
   $('done').hidden = true;
   $('guidePanel').hidden = true;
   $('count').textContent = '0';
@@ -416,6 +458,32 @@ $('shareBtn').addEventListener('click', () => {
 });
 $('doneClose').addEventListener('click', () => { $('done').hidden = true; $('idle').hidden = false; });
 
+function showSetLabel() {
+  $('setLabel').hidden = !sets;
+  if (sets) $('setLabel').textContent = t('setOf').replace('{k}', Math.min(sets.n, Math.floor(sessionCount / sets.per) + 1)).replace('{n}', sets.n);
+}
+// Rest between sets: the camera stays on, nothing is counted, and the practice does not finish by itself.
+function restFrame(now, W, H) {
+  vctx.save();
+  if (mirror) { vctx.translate(W, 0); vctx.scale(-1, 1); }
+  vctx.drawImage(cam, 0, 0, W, H);
+  vctx.restore();
+  lastSeenAt = lastActiveAt = now;
+  const left = sets.restUntil - now;
+  if (left > 0) {
+    $('restTime').textContent = Math.ceil(left / 1000);
+    if (!sets.said10 && left <= 10500 && sets.restMs > 15000) { sets.said10 = true; say(t('rest10'), true); }
+    return;
+  }
+  sets.restUntil = 0; sets.said10 = false;
+  $('restBox').hidden = true;
+  counter.recalibrate();                  // "Begin" is spoken once the person is standing still again
+  Object.assign(voiceState, { stage: 'stand', stageAt: now, target: 0 });
+  say(t('setNext').replace('{k}', Math.floor(sessionCount / sets.per) + 1), true);
+  showSetLabel();
+}
+$('restBox').addEventListener('click', () => { if (sets && sets.restUntil) sets.restUntil = performance.now(); });
+
 function setCount(n) {
   sessionCount = Math.max(0, n);
   counter.count = sessionCount;
@@ -430,6 +498,8 @@ function loop(now) {
   const W = cam.videoWidth, H = cam.videoHeight;
   if (!W || !H) return;
   if (view.width !== W) { view.width = W; view.height = H; }
+  if (finishAt && now > finishAt) { stop(true); return; }
+  if (sets && sets.restUntil) { restFrame(now, W, H); return; }
   let lm = null;
   try {
     const t0 = performance.now();
@@ -558,8 +628,16 @@ function loop(now) {
       if (missed) say(`${t('vMissed')}: ${lang === 'en' ? POSE_INFO[missed - 1].en : POSE_INFO[missed - 1].dev}`, false);
     }
     if (navigator.vibrate) navigator.vibrate(60);
-    const target = Number($('target').value);
-    if (target && sessionCount === target) { noticeUntil = now + 4000; $('hint').textContent = t('done'); say(t('done'), false); }
+    if (sets && sessionCount % sets.per === 0) {
+      const k = sessionCount / sets.per;
+      if (k >= sets.n) finishAt = now + 1800;                 // last set: let the count be heard, then finish
+      else {
+        sets.restUntil = now + sets.restMs;
+        say(t('setDone').replace('{k}', k).replace('{n}', sets.restMs / 1000), false);
+        $('restTime').textContent = sets.restMs / 1000;
+        $('restBox').hidden = false; $('guidePanel').hidden = true;
+      }
+    } else if (sessionTarget && sessionCount === sessionTarget) { noticeUntil = now + 4000; $('hint').textContent = t('done'); say(t('done'), false); }
     else if ($('mantra').checked) say(mantraFor(sessionCount), false);
   }
 }
@@ -593,11 +671,79 @@ for (const [id, def] of [['optNumbers', false], ['mantra', false], ['autoFinish'
   $(id).checked = store.get(id, def);
   $(id).addEventListener('change', () => store.set(id, $(id).checked));
 }
-for (const id of ['facing', 'target', 'strictness', 'weight', 'height', 'theme', 'voiceMode']) {
+for (const id of ['facing', 'target', 'strictness', 'weight', 'height', 'theme', 'voiceMode', 'sets', 'setRounds', 'setRest']) {
   $(id).value = store.get(id, $(id).value);
   $(id).addEventListener('change', () => store.set(id, $(id).value));
 }
 $('lens').addEventListener('change', () => store.set('lens', $('lens').value));
+$('sets').addEventListener('change', () => renderPlan());
+$('weight').addEventListener('change', renderProgress);
+$('kAdd').addEventListener('click', () => { $('weight').scrollIntoView({ block: 'center' }); $('weight').focus(); });
+
+// ---------- gradual daily plan ----------
+$('planGoal').value = String((store.get('plan', null) || {}).goal || 0);
+$('planGoal').addEventListener('change', () => {
+  const goal = Number($('planGoal').value);
+  store.set('plan', goal ? startPlan(goal, store.get('days', {}), dayKey()) : null);
+  renderProgress();
+});
+
+// ---------- save and restore progress (a file the user keeps; nothing is sent anywhere) ----------
+let msgTimer = 0;
+function fileMsg(text) {
+  $('fileMsg').textContent = text; $('fileMsg').hidden = false;
+  clearTimeout(msgTimer); msgTimer = setTimeout(() => { $('fileMsg').hidden = true; }, 6000);
+}
+window.onFileSaved = (ok) => fileMsg(t(ok ? 'saved' : 'saveFail'));
+$('saveBtn').addEventListener('click', () => {
+  const data = {
+    app: 'suryanamaskar', v: 1, saved: new Date().toISOString(),
+    days: store.get('days', {}), sessions: store.get('sessions', []), plan: store.get('plan', null),
+    settings: { weight: $('weight').value, height: $('height').value, lang },
+  };
+  const name = `suryanamaskar-progress-${dayKey()}.json`;
+  const text = JSON.stringify(data);
+  try {
+    if (window.AndroidBridge && window.AndroidBridge.saveFile) { window.AndroidBridge.saveFile(name, text); return; }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+    a.download = name; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    fileMsg(t('saved'));
+  } catch (e) { console.error(e); fileMsg(t('saveFail')); }
+});
+$('restoreBtn').addEventListener('click', () => { $('restoreFile').value = ''; $('restoreFile').click(); });
+$('restoreFile').addEventListener('change', async () => {
+  const file = $('restoreFile').files[0];
+  if (!file) return;
+  let data = null;
+  try { data = JSON.parse(await file.text()); } catch { /* not a progress file */ }
+  const merged = mergeProgress({ days: store.get('days', {}), sessions: store.get('sessions', []) }, data);
+  if (!merged) { fileMsg(t('badFile')); return; }
+  store.set('days', merged.days);
+  store.set('sessions', merged.sessions);
+  const set = (data.settings && typeof data.settings === 'object') ? data.settings : {};
+  for (const [id, lo, hi] of [['weight', 20, 250], ['height', 90, 230]]) {
+    const v = Number(set[id]);
+    if (!$(id).value && v >= lo && v <= hi) { $(id).value = v; store.set(id, String(v)); }
+  }
+  const p = data.plan;
+  if (!store.get('plan', null) && p && [12, 24, 54, 108].includes(p.goal) && Number.isFinite(p.target) && p.target >= 3 && p.target <= p.goal
+    && /^\d{4}-\d{2}-\d{2}$/.test(p.since) && /^\d{4}-\d{2}-\d{2}$/.test(p.lastEval)) {
+    store.set('plan', { goal: p.goal, target: Math.floor(p.target), since: p.since, lastEval: p.lastEval });
+    $('planGoal').value = String(p.goal);
+  }
+  renderProgress(); renderProfile(); renderLastSummary(); syncReminder();
+  fileMsg(t('restored').replace('{n}', Object.values(merged.days).filter((n) => n > 0).length));
+});
+
+// ---------- feedback by email ----------
+$('feedbackBtn').hidden = !FEEDBACK_EMAIL;
+$('feedbackBtn').addEventListener('click', () => {
+  let info = navigator.userAgent;
+  try { if (window.AndroidBridge && window.AndroidBridge.appInfo) info = window.AndroidBridge.appInfo(); } catch { /* not in the app */ }
+  location.href = `mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent('Suryanamaskar app feedback')}&body=${encodeURIComponent(`\n\n\n---\n${info}`)}`;
+});
 $('weight').addEventListener('input', renderProfile);
 $('height').addEventListener('input', renderProfile);
 

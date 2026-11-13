@@ -16,9 +16,19 @@
     <div id="idle">
       <div class="today-ring"><span id="todayBig">0</span><small data-t="today">today</small></div>
       <p class="summary" id="lastSummary" hidden></p>
-      <label class="row"><span data-t="target">Target</span>
+      <p class="summary plan" id="planLine" hidden></p>
+      <label class="row" id="targetRow"><span data-t="target">Target</span>
         <select id="target"><option value="0" data-t="noTarget">No target</option><option>12</option><option>24</option><option>54</option><option>108</option></select>
       </label>
+      <label class="row"><span data-t="sets">Sets</span>
+        <select id="sets"><option value="0" data-t="setsOff">Off</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select>
+      </label>
+      <div id="setRows" hidden>
+        <label class="row"><span data-t="setRounds">Rounds in each set</span>
+          <select id="setRounds"><option>3</option><option selected>5</option><option>6</option><option>10</option><option>12</option></select></label>
+        <label class="row"><span data-t="setRest">Rest between sets</span>
+          <select id="setRest"><option value="30">30</option><option value="60" selected>60</option><option value="90">90</option><option value="120">120</option></select></label>
+      </div>
       <button id="start" class="primary" data-t="start">Start practice</button>
       <ol class="tips">
         <li data-t="tip1">Keep the phone upright, 2 to 3 metres away, at about knee height.</li>
@@ -33,6 +43,8 @@
         <div class="count" id="count">0</div>
         <div class="hint" id="hint"></div>
         <div id="tuneBox" hidden></div>
+        <div id="setLabel" hidden></div>
+        <button id="restBox" hidden><small data-t="rest">Rest</small><b id="restTime">60</b><small data-t="skipRest">Tap to skip the rest</small></button>
       </div>
       <div class="dots" id="dots"></div>
       <div class="guide-panel" id="guidePanel" hidden>
@@ -76,6 +88,13 @@
       <div><b id="sStreak">0</b><span data-t="streak">day streak</span></div>
       <div><b id="sTotal">0</b><span data-t="total">total</span></div>
     </div>
+    <h2 data-t="iKcal">Calories (approx.)</h2>
+    <div class="stats" id="kcalStats">
+      <div><b id="kToday">0</b><span data-t="today">today</span></div>
+      <div><b id="kWeek">0</b><span data-t="d7">7 days</span></div>
+      <div><b id="kMonth">0</b><span data-t="d30">30 days</span></div>
+    </div>
+    <button id="kAdd" class="wide-btn" data-t="kAdd" hidden>Add your weight to see calories burned</button>
     <div class="seg" id="period">
       <button data-p="7" class="active" data-t="week">Week</button>
       <button data-p="30" data-t="month">Month</button>
@@ -86,6 +105,9 @@
     <label class="row"><span data-t="weight">Weight (kg)</span><input type="number" id="weight" inputmode="decimal" min="20" max="250" step="0.5" placeholder="—"></label>
     <label class="row"><span data-t="height">Height (cm)</span><input type="number" id="height" inputmode="numeric" min="90" max="230" step="1" placeholder="—"></label>
     <p class="note" id="bmi"></p>
+    <label class="row"><span data-t="planGoal">Daily plan</span>
+      <select id="planGoal"><option value="0" data-t="planOff">Off</option><option value="12"></option><option value="24"></option><option value="54"></option><option value="108"></option></select></label>
+    <p class="note" data-t="planNote"></p>
     <label class="row"><span data-t="language">Language</span>
       <select id="lang"><option value="en">English</option><option value="mr">मराठी</option><option value="hi">हिन्दी</option></select></label>
     <label class="row" id="remindRow" hidden><span data-t="remind">Daily reminder</span><input type="checkbox" id="remind"></label>
@@ -105,6 +127,12 @@
     <label class="row"><span data-t="showNumbers">Show tuning numbers</span><input type="checkbox" id="optNumbers"></label>
     <button id="howTo" class="wide-btn" data-t="howTo">How to use</button>
     <button id="healthBtn" class="wide-btn" data-t="healthBtn">Health and safety</button>
+    <button id="feedbackBtn" class="wide-btn" data-t="feedback" hidden>Send feedback</button>
+    <button id="saveBtn" class="wide-btn" data-t="saveBtn">Save progress to a file</button>
+    <button id="restoreBtn" class="wide-btn" data-t="restoreBtn">Restore progress from a file</button>
+    <input type="file" id="restoreFile" accept="application/json,.json" hidden>
+    <p class="note" data-t="backupNote"></p>
+    <p class="summary" id="fileMsg" hidden></p>
     <p class="private" data-t="privacy">Nothing is recorded. The camera picture never leaves your phone.</p>
   </section>
 </main>

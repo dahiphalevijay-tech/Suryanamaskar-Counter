@@ -71,3 +71,24 @@ export function summarize(days, sessions, periodDays, now = new Date()) {
     activeMs: ms, rounds, kcal, usualHour, missed, hasDetail: mine.length > 0,
   };
 }
+
+// Calories recorded in sessions since the start of the day `daysBack` days ago (0 = today only).
+export function kcalSince(sessions, daysBack, now = new Date()) {
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysBack).getTime();
+  return sessions.filter((s) => s.t >= start).reduce((a, s) => a + (s.kcal || 0), 0);
+}
+
+// Combines saved progress from a file with what is on the phone. Nothing is lost from either side:
+// each day keeps its higher count, and sessions are joined without duplicates. Returns null for a foreign file.
+export function mergeProgress(current, incoming) {
+  if (!incoming || incoming.app !== 'suryanamaskar' || typeof incoming.days !== 'object' || incoming.days === null) return null;
+  const days = { ...current.days };
+  for (const [k, v] of Object.entries(incoming.days)) {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(k) && Number.isFinite(v) && v >= 0) days[k] = Math.max(days[k] || 0, Math.floor(v));
+  }
+  const byTime = new Map();
+  for (const s of [...(current.sessions || []), ...(Array.isArray(incoming.sessions) ? incoming.sessions : [])]) {
+    if (s && Number.isFinite(s.t) && Number.isFinite(s.n)) byTime.set(s.t, s);
+  }
+  return { days, sessions: [...byTime.values()].sort((a, b) => a.t - b.t).slice(-3000) };
+}

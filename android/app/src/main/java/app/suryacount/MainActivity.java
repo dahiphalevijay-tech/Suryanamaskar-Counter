@@ -39,6 +39,9 @@ public class MainActivity extends Activity {
     private boolean ttsReady;
     private PermissionRequest pendingRequest;
     private FrameLayout root;
+    private android.webkit.ValueCallback<Uri[]> pendingFiles;
+    private String pendingSave;
+    private static final int REQ_OPEN = 11, REQ_SAVE = 12;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -77,11 +80,43 @@ public class MainActivity extends Activity {
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
                 return loader.shouldInterceptRequest(request.getUrl());
             }
+
+            /** The app never browses: an email link opens the phone's mail app, anything else is refused. */
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                Uri url = request.getUrl();
+                if ("appassets.androidplatform.net".equals(url.getHost())) return false;
+                if ("mailto".equals(url.getScheme())) {
+                    try {
+                        startActivity(new Intent(Intent.ACTION_SENDTO, url));
+                    } catch (RuntimeException e) {
+                        android.util.Log.e("SuryaMail", "no mail app", e);
+                    }
+                }
+                return true;
+            }
         });
         web.setWebChromeClient(new WebChromeClient() {
             @Override
             public void onPermissionRequest(final PermissionRequest request) {
                 runOnUiThread(() -> handleCameraRequest(request));
+            }
+
+            /** "Restore progress": lets the user pick the file they saved earlier. */
+            @Override
+            public boolean onShowFileChooser(WebView v, android.webkit.ValueCallback<Uri[]> callback, FileChooserParams params) {
+                if (pendingFiles != null) pendingFiles.onReceiveValue(null);
+                pendingFiles = callback;
+                try {
+                    Intent pick = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                    pick.addCategory(Intent.CATEGORY_OPENABLE);
+                    pick.setType("*/*");
+                    startActivityForResult(pick, REQ_OPEN);
+                } catch (RuntimeException e) {
+                    pendingFiles = null;
+                    callback.onReceiveValue(null);
+                }
+                return true;
             }
 
             @Override
@@ -122,6 +157,30 @@ public class MainActivity extends Activity {
             pendingRequest.deny();
         }
         pendingRequest = null;
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        Uri uri = resultCode == RESULT_OK && data != null ? data.getData() : null;
+        if (requestCode == REQ_OPEN) {
+            if (pendingFiles != null) pendingFiles.onReceiveValue(uri == null ? null : new Uri[]{uri});
+            pendingFiles = null;
+        } else if (requestCode == REQ_SAVE) {
+            String text = pendingSave;
+            pendingSave = null;
+            if (uri == null || text == null) return;       // the user backed out
+            boolean ok = false;
+            try (java.io.OutputStream out = getContentResolver().openOutputStream(uri)) {
+                if (out != null) {
+                    out.write(text.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    ok = true;
+                }
+            } catch (IOException | RuntimeException e) {
+                android.util.Log.e("SuryaSave", "save failed", e);
+            }
+            web.evaluateJavascript("window.onFileSaved && window.onFileSaved(" + ok + ")", null);
+        }
     }
 
     @Override
@@ -202,6 +261,36 @@ public class MainActivity extends Activity {
             } catch (RuntimeException ignored) {
                 // speech is optional
             }
+        }
+
+        /** "Save progress": asks the user where to keep the file, then writes it there. */
+        @JavascriptInterface
+        public void saveFile(final String name, final String text) {
+            runOnUiThread(() -> {
+                try {
+                    pendingSave = text;
+                    Intent make = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                    make.addCategory(Intent.CATEGORY_OPENABLE);
+                    make.setType("application/json");
+                    make.putExtra(Intent.EXTRA_TITLE, name);
+                    startActivityForResult(make, REQ_SAVE);
+                } catch (RuntimeException e) {
+                    pendingSave = null;
+                    web.evaluateJavascript("window.onFileSaved && window.onFileSaved(false)", null);
+                }
+            });
+        }
+
+        /** App version and phone model, added to feedback emails so problems can be traced. */
+        @JavascriptInterface
+        public String appInfo() {
+            String version = "";
+            try {
+                version = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+            } catch (PackageManager.NameNotFoundException ignored) {
+                // leave blank
+            }
+            return "Suryanamaskar " + version + ", " + Build.MANUFACTURER + " " + Build.MODEL + ", Android " + Build.VERSION.RELEASE;
         }
 
         /** Switches the daily reminder on or off and stores what it should say. */

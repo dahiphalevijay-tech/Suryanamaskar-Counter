@@ -94,3 +94,9 @@ input[type=number] { font:inherit; width:96px; padding:8px 10px; border-radius:1
 input[type=time] { font:inherit; padding:8px 10px; border-radius:10px; border:1px solid var(--line); background:var(--card); color:var(--ink); }
 #introProfile { max-width:440px; width:100%; margin:18px auto auto; }
 #introArt[hidden] + h2 { margin-top:40px; }
+.plan { color:var(--sun); }
+#setLabel { position:absolute; top:10px; left:0; right:0; text-align:center; color:#fff; font-weight:700; text-shadow:0 1px 4px #000; pointer-events:none; }
+#restBox { position:absolute; inset:0; border:0; border-radius:0; background:rgba(0,0,0,.72); color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; }
+#restBox b { font-size:96px; line-height:1; font-weight:800; color:var(--sun2); }
+#restBox small { font-size:18px; font-weight:600; }
+#kcalStats { margin-bottom:4px; }

@@ -28,7 +28,7 @@ jobs:
         with:
           node-version: 22
       - name: Run counting tests
-        run: node tests/counter.test.mjs && node tests/stats.test.mjs && node tests/person.test.mjs
+        run: node tests/counter.test.mjs && node tests/stats.test.mjs && node tests/person.test.mjs && node tests/plan.test.mjs
       - name: Fetch the pose detector
         run: |
           set -euo pipefail
