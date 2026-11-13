@@ -7,7 +7,7 @@ import { pickPerson } from './person.js';
 const sunrisePhoto = new Image(); sunrisePhoto.src = './img/sunrise.jpg';
 const guidePhoto = new Image(); guidePhoto.src = './img/guide.jpg';
 import { dayKey, kcalFor, bmi, summarize, kcalSince, mergeProgress } from './stats.js';
-import { startPlan, evaluatePlan, todayPlan } from './plan.js';
+import { startPlan, evaluatePlan, todayPlan, splitSets } from './plan.js';
 
 // Where feedback emails go. The Send feedback button stays hidden until this is filled in.
 const FEEDBACK_EMAIL = '';
@@ -119,10 +119,15 @@ function renderPlan(days) {
   const p = planToday(days);
   $('planLine').hidden = !p;
   $('targetRow').hidden = !!p || Number($('sets').value) > 0;
-  $('setRows').hidden = !Number($('sets').value);
+  const nSets = Number($('sets').value);
+  $('setRows').hidden = !nSets;
+  // while today's plan still has rounds left, the plan decides how many rounds go in each set
+  $('setRoundsRow').hidden = !!(p && p.remaining);
   if (!p) return;
   const head = t(p.rest ? 'planRest' : 'planToday').replace('{n}', p.target);
-  $('planLine').textContent = p.remaining ? `${head} · ${t('planLeft').replace('{n}', p.remaining)}` : `${t('planDone')} ✓`;
+  const parts = p.remaining ? [head, t('planLeft').replace('{n}', p.remaining)] : [`${t('planDone')} ✓`];
+  if (p.remaining && nSets) parts.push(`${t('sets')}: ${splitSets(p.remaining, nSets).join(' + ')}`);
+  $('planLine').textContent = parts.join(' · ');
 }
 
 function renderLastSummary() {
@@ -331,9 +336,15 @@ async function start() {
   followed = null;
   finishAt = 0;
   const nSets = Number($('sets').value);
-  sets = nSets ? { n: nSets, per: Number($('setRounds').value), restMs: Number($('setRest').value) * 1000, restUntil: 0, said10: false } : null;
   const plan = planToday();
-  sessionTarget = sets ? sets.n * sets.per : plan ? plan.remaining : Number($('target').value);
+  sets = null;
+  if (nSets) {
+    // sizes of the sets: shared out from what is left of today's plan, otherwise the chosen rounds per set
+    const sizes = plan && plan.remaining ? splitSets(plan.remaining, nSets) : new Array(nSets).fill(Number($('setRounds').value));
+    let sum = 0;
+    sets = { ends: sizes.map((n) => (sum += n)), restMs: Number($('setRest').value) * 1000, restUntil: 0, said10: false };
+  }
+  sessionTarget = sets ? sets.ends[sets.ends.length - 1] : plan ? plan.remaining : Number($('target').value);
   $('restBox').hidden = true;
   showSetLabel();
   $('done').hidden = true;
@@ -458,9 +469,10 @@ $('shareBtn').addEventListener('click', () => {
 });
 $('doneClose').addEventListener('click', () => { $('done').hidden = true; $('idle').hidden = false; });
 
+const setsDone = () => Math.min(sets.ends.length - 1, sets.ends.filter((e) => e <= sessionCount).length);
 function showSetLabel() {
   $('setLabel').hidden = !sets;
-  if (sets) $('setLabel').textContent = t('setOf').replace('{k}', Math.min(sets.n, Math.floor(sessionCount / sets.per) + 1)).replace('{n}', sets.n);
+  if (sets) $('setLabel').textContent = t('setOf').replace('{k}', setsDone() + 1).replace('{n}', sets.ends.length);
 }
 // Rest between sets: the camera stays on, nothing is counted, and the practice does not finish by itself.
 function restFrame(now, W, H) {
@@ -479,7 +491,7 @@ function restFrame(now, W, H) {
   $('restBox').hidden = true;
   counter.recalibrate();                  // "Begin" is spoken once the person is standing still again
   Object.assign(voiceState, { stage: 'stand', stageAt: now, target: 0 });
-  say(t('setNext').replace('{k}', Math.floor(sessionCount / sets.per) + 1), true);
+  say(t('setNext').replace('{k}', setsDone() + 1), true);
   showSetLabel();
 }
 $('restBox').addEventListener('click', () => { if (sets && sets.restUntil) sets.restUntil = performance.now(); });
@@ -628,9 +640,9 @@ function loop(now) {
       if (missed) say(`${t('vMissed')}: ${lang === 'en' ? POSE_INFO[missed - 1].en : POSE_INFO[missed - 1].dev}`, false);
     }
     if (navigator.vibrate) navigator.vibrate(60);
-    if (sets && sessionCount % sets.per === 0) {
-      const k = sessionCount / sets.per;
-      if (k >= sets.n) finishAt = now + 1800;                 // last set: let the count be heard, then finish
+    if (sets && sets.ends.includes(sessionCount)) {
+      const k = sets.ends.indexOf(sessionCount) + 1;
+      if (k >= sets.ends.length) finishAt = now + 1800;                 // last set: let the count be heard, then finish
       else {
         sets.restUntil = now + sets.restMs;
         say(t('setDone').replace('{k}', k).replace('{n}', sets.restMs / 1000), false);

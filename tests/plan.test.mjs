@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import { startPlan, evaluatePlan, todayPlan } from '../web/plan.js';
+import { startPlan, evaluatePlan, todayPlan, splitSets } from '../web/plan.js';
 import { mergeProgress, kcalSince } from '../web/stats.js';
 
 function test(name, fn) { fn(); console.log('ok  ' + name); }
@@ -68,5 +68,11 @@ test('calories since a day', () => {
   assert.equal(kcalSince(s, 0, now), 10);
   assert.equal(kcalSince(s, 6, now), 30);
   assert.equal(kcalSince(s, 29, now), 70);
+});
+test('the plan is split evenly into sets', () => {
+  assert.deepEqual(splitSets(12, 2), [6, 6]);
+  assert.deepEqual(splitSets(12, 5), [3, 3, 2, 2, 2]);
+  assert.deepEqual(splitSets(2, 4), [1, 1]);
+  assert.deepEqual(splitSets(7, 1), [7]);
 });
 console.log('all plan tests passed');

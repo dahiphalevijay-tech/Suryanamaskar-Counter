@@ -40,3 +40,10 @@ export function todayPlan(state, days, today) {
   const done = days[today] || 0;
   return { target, rest, done, remaining: Math.max(0, target - done), goal: state.goal };
 }
+
+// Splits a number of rounds into n sets as evenly as possible, e.g. 12 into 5 sets = 3, 3, 2, 2, 2.
+export function splitSets(total, n) {
+  const k = Math.max(1, Math.min(n, total));
+  const base = Math.floor(total / k), extra = total % k;
+  return Array.from({ length: k }, (_, i) => base + (i < extra ? 1 : 0));
+}
