@@ -194,6 +194,38 @@ test('a shallow lunge and a plank with raised hips are both recognised', () => {
   assert.equal(run(c, [...stand, ...round, ...round]).last.count, 2);
 });
 
+test('a foot misplaced by the detector during cobra is not taken for the second lunge', () => {
+  for (const mode of ['standard', 'strict']) {
+    const c = new RepCounter({ mode });
+    let glitch = false, sawEarlyNine = false;
+    // wraps the counter: while "glitch" is on, one ankle is reported far from the other, as the lighter model does
+    const wrapped = { update: (lm, t, a) => {
+      if (glitch) lm[27] = { ...lm[27], x: lm[27].x + 0.2 };
+      const r = c.update(lm, t, a);
+      if (glitch && r.step === 9) sawEarlyNine = true;
+      return r;
+    } };
+    let { t } = run(wrapped, [...stand, ...POSES.slice(0, 7).map((p) => [p, 500, 400])]);
+    glitch = true;
+    ({ t } = run(wrapped, [[POSES[6], 0, 800]], t));
+    glitch = false;
+    const { last } = run(wrapped, [[POSES[6], 0, 200], ...POSES.slice(7).map((p) => [p, 500, 400]), [POSES[0], 500, 400]], t);
+    assert.equal(sawEarlyNine, false, mode);
+    assert.equal(last.count, 1, mode);
+  }
+});
+
+test('a lunge believed too early is taken back when the mountain pose appears', () => {
+  const c = new RepCounter({ mode: 'strict' });
+  let { t } = run(c, [...stand, ...POSES.slice(0, 7).map((p) => [p, 500, 400])]);
+  ({ t } = run(c, [[POSES[8], 400, 500]], t));                  // cobra straight to a lunge: step 9, mountain skipped
+  assert.equal(c.step, 9);
+  let r = run(c, [[POSES[7], 500, 600]], t); t = r.t;           // then the mountain pose after all
+  assert.equal(c.step, 8);
+  r = run(c, [...POSES.slice(8).map((p) => [p, 500, 400]), [POSES[0], 500, 400]], t);
+  assert.equal(r.last.count, 1);
+});
+
 test('works at 3 frames per second (a slow phone)', () => {
   const c = new RepCounter();
   let t = 0, prev = POSES[0], last;

@@ -281,7 +281,9 @@ const sctx = small.getContext('2d');
 function startingModel() {
   const weak = (navigator.deviceMemory && navigator.deviceMemory <= 2)
     || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4);
-  return weak || store.get('slowPhone', false) ? 'lite' : 'full';
+  // The lighter model is less exact, so one slow session is not enough to settle on it: the full model is tried
+  // again next time, and only a phone that was too slow twice running stays on the lighter one.
+  return weak || Number(store.get('slowPhone', 0)) >= 2 ? 'lite' : 'full';
 }
 
 async function loadModel(kind = startingModel()) {
@@ -389,6 +391,8 @@ function stop(spoken = false) {
   if (stream) { stream.getTracks().forEach((x) => x.stop()); stream = null; }
   if (wakeLock) { try { wakeLock.release(); } catch { /* ignore */ } wakeLock = null; }
   addToday(sessionCount);
+  // a session that stayed on the full model at a good speed clears the slow-phone mark
+  if (modelKind === 'full' && inferN > 200) store.set('slowPhone', 0);
   let saved = null;
   if (sess && (sessionCount > 0 || sess.rej > 0)) {
     const kcal = kcalFor(Number($('weight').value), sess.ms, sess.rounds);
@@ -530,7 +534,7 @@ function loop(now) {
     if (inferN > 5) inferMs += (dt - inferMs) / Math.min(inferN - 5, 30);
     if (modelKind === 'full' && inferN > 45 && inferMs > SLOW_MS && !switching) {
       switching = true;
-      store.set('slowPhone', true);
+      store.set('slowPhone', Number(store.get('slowPhone', 0)) + 1);
       loadModel('lite').catch((e) => console.error(e)).finally(() => { switching = false; });
     }
     if (modelKind === 'lite' && !smallInput && inferN > 30 && inferMs > VERY_SLOW_MS) { smallInput = true; inferN = 6; }

@@ -40,8 +40,9 @@ const RAISE = 0.02;
 // stepping back or hands reaching forward cannot be seen, so the lunges and mountain pose cannot be checked.)
 // These numbers were tuned on real side-on recordings (ground, terrace and road; barefoot and in shoes).
 const bend = (f) => f.k > 0.45 && f.h < 0.68 && f.reach < 0.4 && f.sep < 0.4;
-// lunge: feet far apart, body low. The hips may stay fairly high in a shallow lunge.
-const lunge = (f) => f.sep > 0.4 && f.k < 0.52 && f.h > 0.25 && f.h < 0.6;
+// lunge: feet far apart, body low. The hips may stay fairly high in a shallow lunge, but they are never on the
+// floor: with the hips that low the pose is cobra, and "feet apart" there is the detector misplacing a foot.
+const lunge = (f) => f.sep > 0.4 && f.k > 0.22 && f.k < 0.52 && f.h > 0.25 && f.h < 0.6;
 // plank: feet together, hands far ahead of the feet, hips roughly level with the shoulders.
 // A plank with the hips a little raised is accepted; hips well above the shoulders is the mountain pose.
 const plank = (f) => f.sep < 0.4 && f.reach > 0.5 && f.k > 0.15 && f.k < 0.52 && f.h > 0.28 && f.h < 0.6
@@ -158,11 +159,21 @@ export class RepCounter {
     this.roundStart = t;
     this.upSince = null;
     this.lastStepAt = t;
+    this.back = null;
   }
 
   // Follows the person through the 12 steps. Returns 'done', 'abandoned' or null.
   _track(f, t, isUp) {
     const o = this.o;
+    // A lunge believed too early (before the mountain pose was seen) is taken back when the mountain pose
+    // then appears, so the guide asks for the lunge again instead of jumping ahead to the forward bend.
+    if (this.step === 9 && !this.seen[8] && STEP_RULES[7](f)) {
+      if (this.back === null) this.back = t;
+      if (t - this.back >= o.stepDwellMs + o.skipDwellMs) {
+        this.step = 8; this.seen[8] = true; this.seen[9] = false;
+        this.lastStepAt = t; this.back = null; this.cand = { step: 0, since: 0 };
+      }
+    } else this.back = null;
     let hit = 0;
     for (let j = this.step + 1; j <= Math.min(12, this.step + o.lookAhead); j++) {
       if (!STEP_RULES[j - 1]) continue;
