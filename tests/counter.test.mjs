@@ -226,6 +226,19 @@ test('a lunge believed too early is taken back when the mountain pose appears', 
   assert.equal(r.last.count, 1);
 });
 
+test('someone sitting still is never taken for a person standing ready', () => {
+  const c = new RepCounter();
+  const lm = toLandmarks(POSES[0]).map((p) => ({ ...p }));
+  for (const i of [23, 24]) lm[i].y = 0.62;
+  for (const i of [25, 26]) { lm[i].y = 0.63; lm[i].x += 0.13; }
+  for (const i of [27, 28, 29, 30, 31, 32]) { lm[i].y = 0.86; lm[i].x += 0.14; }
+  const top = lm[11].y - 0.38;
+  for (let i = 0; i <= 22; i++) lm[i].y -= top;
+  let last;
+  for (let t = 0; t < 4000; t += DT) last = c.update(lm.map((p) => ({ ...p })), t, 2);
+  assert.equal(last.calibrated, false);
+});
+
 test('works at 3 frames per second (a slow phone)', () => {
   const c = new RepCounter();
   let t = 0, prev = POSES[0], last;

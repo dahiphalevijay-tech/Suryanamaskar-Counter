@@ -274,8 +274,37 @@ let switching = false;
 const SLOW_MS = 85;
 const VERY_SLOW_MS = 140;
 let smallInput = false;                       // feed the detector a half-size picture (very slow phones)
+let onePerson = false;                        // very slow phones look for one person only
 const small = document.createElement('canvas');
 const sctx = small.getContext('2d');
+
+// ---------- low light ----------
+// The picture's brightness is measured twice a second on a tiny copy. In a dim room the picture handed to the
+// detector is brightened, which keeps the person found far more often; in a very dark room the person is told.
+const DIM = 80, DARK = 30;
+const meter = document.createElement('canvas');
+meter.width = 32; meter.height = 24;
+const mctx = meter.getContext('2d', { willReadFrequently: true });
+let light = 128, lightAt = 0, darkSince = 0, darkSaid = false;
+function measureLight(now) {
+  if (now - lightAt < 500) return;
+  lightAt = now;
+  try {
+    mctx.drawImage(cam, 0, 0, 32, 24);
+    const d = mctx.getImageData(0, 0, 32, 24).data;
+    let sum = 0;
+    for (let i = 0; i < d.length; i += 4) sum += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+    light += (sum / (d.length / 4) - light) * 0.5;
+  } catch { /* measuring is optional */ }
+  if (light >= DARK) darkSince = 0;
+  else if (!darkSince) darkSince = now;
+  if (darkSince && now - darkSince > 2500 && !darkSaid) {
+    darkSaid = true;
+    noticeUntil = now + 5000;
+    $('hint').textContent = t('dark');
+    say(t('dark'), true);
+  }
+}
 // Phones with little memory or few processor cores start on the light model straight away; so does any
 // phone that proved too slow for the full model in an earlier session.
 function startingModel() {
@@ -294,8 +323,8 @@ async function loadModel(kind = startingModel()) {
   }
   const make = (delegate) => vision.PoseLandmarker.createFromOptions(visionFiles, {
     baseOptions: { modelAssetPath: `./vendor/pose_landmarker_${kind}.task`, delegate },
-    // on phones fast enough for the full model, look for two people so a bystander can be told apart
-    runningMode: 'VIDEO', numPoses: kind === 'full' ? 2 : 1,
+    // look for more than one person, so friends watching can be told apart from the person practising
+    runningMode: 'VIDEO', numPoses: kind === 'full' ? 3 : 2,
     // lower than the defaults so the person is not dropped when the face is hidden (forward bend, mountain)
     minPoseDetectionConfidence: 0.3, minPosePresenceConfidence: 0.3, minTrackingConfidence: 0.3,
   });
@@ -304,6 +333,7 @@ async function loadModel(kind = startingModel()) {
   const old = landmarker;
   landmarker = next;
   modelKind = kind;
+  onePerson = false;
   inferMs = 0; inferN = 0;
   if (old) { try { old.close(); } catch { /* ignore */ } }
 }
@@ -337,6 +367,7 @@ async function start() {
   lastStep = 0;
   followed = null;
   finishAt = 0;
+  light = 128; lightAt = 0; darkSince = 0; darkSaid = false;
   const nSets = Number($('sets').value);
   const plan = planToday();
   sets = null;
@@ -519,16 +550,24 @@ function loop(now) {
   let lm = null;
   try {
     const t0 = performance.now();
+    measureLight(now);
     let input = cam;
-    if (smallInput) {
-      if (small.width !== W >> 1) { small.width = W >> 1; small.height = H >> 1; }
-      sctx.drawImage(cam, 0, 0, small.width, small.height);
+    const gain = light < DIM ? Math.min(3, 110 / Math.max(light, 15)) : 1;
+    if (smallInput || gain > 1) {
+      const w = smallInput ? W >> 1 : W, h = smallInput ? H >> 1 : H;
+      if (small.width !== w || small.height !== h) { small.width = w; small.height = h; }
+      sctx.filter = gain > 1 ? `brightness(${gain.toFixed(2)})` : 'none';
+      sctx.drawImage(cam, 0, 0, w, h);
       input = small;
     }
     const res = landmarker.detectForVideo(input, now);
-    const pick = pickPerson(res.landmarks, followed);
+    // before counting starts: the person standing in full view; after: stay with that person
+    const pick = pickPerson(res.landmarks, followed, now, counter.calibrated);
     lm = pick.lm;
-    if (lm) { followed = pick.centre; followedAt = now; } else if (now - followedAt > 3000) followed = null;
+    followed = pick.centre;
+    if (lm) followedAt = now;
+    // out of view for a while: look for them afresh, but keep remembering where the others are
+    else if (followed && Number.isFinite(followed.x) && now - followedAt > (counter.calibrated ? 8000 : 3000)) followed = { others: followed.others || [] };
     const dt = performance.now() - t0;
     inferN += 1;
     if (inferN > 5) inferMs += (dt - inferMs) / Math.min(inferN - 5, 30);
@@ -537,7 +576,11 @@ function loop(now) {
       store.set('slowPhone', Number(store.get('slowPhone', 0)) + 1);
       loadModel('lite').catch((e) => console.error(e)).finally(() => { switching = false; });
     }
-    if (modelKind === 'lite' && !smallInput && inferN > 30 && inferMs > VERY_SLOW_MS) { smallInput = true; inferN = 6; }
+    if (modelKind === 'lite' && inferN > 30 && inferMs > VERY_SLOW_MS) {
+      // first look for one person only, then shrink the picture
+      if (!onePerson) { onePerson = true; landmarker.setOptions({ numPoses: 1 }).catch((e) => console.error(e)); inferN = 6; }
+      else if (!smallInput) { smallInput = true; inferN = 6; }
+    }
   } catch (e) { console.error(e); }
   const out = counter.update(lm || null, now, W / H);
 
@@ -580,7 +623,7 @@ function loop(now) {
     // only setup messages are shown here; while the person is walking to or from the phone the last one stays
     const setup = ['far', 'stand', 'calibrating', 'turn', 'lost'].includes(out.stage);
     if (setup && (now > noticeUntil || out.stage === 'turn')) $('hint').textContent = t(out.stage);
-    else if (!out.calibrated) $('hint').textContent = t('stand');
+    else if (!out.calibrated && now > noticeUntil) $('hint').textContent = t('stand');
     if (out.stage === 'turn') [...dots.children].forEach((d) => { d.className = ''; });
   }
   if (out.rejected) {

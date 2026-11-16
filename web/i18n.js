@@ -1,5 +1,6 @@
 export const STR = {
   en: {
+    dark: 'Low light. Turn on a light or face a window, so the counting does not miss steps.',
     sets: 'Sets', setsOff: 'Off', setRounds: 'Rounds in each set', setRest: 'Rest between sets',
     setDone: 'Set {k} complete. Rest for {n} seconds.', setNext: 'Set {k}', rest: 'Rest', skipRest: 'Tap to skip the rest', rest10: 'Ten seconds', setOf: 'Set {k} of {n}',
     planGoal: 'Daily plan', planOff: 'Off', planGoalOpt: 'Build up to {n} a day',
@@ -56,6 +57,7 @@ export const STR = {
     notCounted: 'Not counted: steps were missed',
   },
   mr: {
+    dark: 'प्रकाश कमी आहे. दिवा लावा किंवा खिडकीकडे तोंड करा, म्हणजे मोजणीत पायऱ्या सुटणार नाहीत.',
     sets: 'संच', setsOff: 'बंद', setRounds: 'प्रत्येक संचात फेऱ्या', setRest: 'संचांमधील विश्रांती',
     setDone: 'संच {k} पूर्ण. {n} सेकंद विश्रांती घ्या.', setNext: 'संच {k}', rest: 'विश्रांती', skipRest: 'विश्रांती वगळण्यासाठी टॅप करा', rest10: 'दहा सेकंद', setOf: 'संच {k} / {n}',
     planGoal: 'रोजची योजना', planOff: 'बंद', planGoalOpt: 'रोज {n} पर्यंत वाढवा',
@@ -112,6 +114,7 @@ export const STR = {
     notCounted: 'मोजले नाही: काही पायऱ्या चुकल्या',
   },
   hi: {
+    dark: 'रोशनी कम है. बत्ती जलाएँ या खिड़की की ओर मुँह करें, ताकि गिनती में चरण न छूटें.',
     sets: 'सेट', setsOff: 'बंद', setRounds: 'हर सेट में चक्र', setRest: 'सेट के बीच विश्राम',
     setDone: 'सेट {k} पूरा. {n} सेकंड विश्राम करें.', setNext: 'सेट {k}', rest: 'विश्राम', skipRest: 'विश्राम छोड़ने के लिए टैप करें', rest10: 'दस सेकंड', setOf: 'सेट {k} / {n}',
     planGoal: 'रोज़ की योजना', planOff: 'बंद', planGoalOpt: 'रोज़ {n} तक बढ़ाएँ',

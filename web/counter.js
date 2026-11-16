@@ -121,7 +121,10 @@ export class RepCounter {
     const hipFrac = body > 0 ? (s.hipY - s.shY) / body : 0;
     const lean = body > 0 ? Math.abs(s.shX - s.hipX) * aspect / body : 1;
     const far = body < o.minBody;
-    const upright = !far && hipFrac > 0.28 && hipFrac < 0.58 && lean < 0.2;
+    // someone sitting has the hips at the right height too, but the knees level with them: not a standing person
+    const kn = [landmarks[25], landmarks[26]].filter((p) => p && p.visibility >= VIS);
+    const thigh = kn.length && body > 0 ? (kn.reduce((x, p) => x + p.y, 0) / kn.length - s.hipY) / body : 0.25;
+    const upright = !far && hipFrac > 0.28 && hipFrac < 0.58 && lean < 0.2 && thigh > 0.12;
     if (!upright) { this.stanceBuf = []; return { held: false, upright, far }; }
     const L = landmarks[11], R = landmarks[12];
     const width = L && R && L.visibility >= VIS && R.visibility >= VIS ? Math.abs(L.x - R.x) * aspect / body : 0;
