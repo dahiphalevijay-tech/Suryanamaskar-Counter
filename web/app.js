@@ -704,7 +704,7 @@ function loop(now) {
   }
 
   // step guide below the picture: the figure and name of the next step; the dots show the steps recognised
-  if (out.calibrated && out.visible && out.stage !== 'turn') {
+  if (out.calibrated && out.visible && out.stage !== 'turn' && !finishAt) {
     const target = out.next;
     const info = POSE_INFO[target - 1];
     const name = lang === 'en' ? info.en : info.dev;
@@ -752,7 +752,7 @@ function loop(now) {
     }
   } else {
     voiceState.stage = 'ok';
-    if (fullVoice() && out.next !== voiceState.target && !out.counted) {
+    if (fullVoice() && !finishAt && out.next !== voiceState.target && !out.counted) {
       voiceState.target = out.next;
       // let a count, "Begin" or mantra that was just spoken finish before naming the next pose;
       // after that, each new pose name replaces the previous one so the voice never falls behind
@@ -789,7 +789,12 @@ function loop(now) {
     if (navigator.vibrate) navigator.vibrate(60);
     if (sets && sets.ends.includes(sessionCount)) {
       const k = sets.ends.indexOf(sessionCount) + 1;
-      if (k >= sets.ends.length) finishAt = now + 1800;                 // last set: let the count be heard, then finish
+      if (k >= sets.ends.length) {
+        // last set: no next step is announced; the count is heard, then the practice finishes
+        finishAt = now + 1800;
+        noticeUntil = now + 4000; $('hint').textContent = t('done');
+        $('guidePanel').hidden = true;
+      }
       else {
         sets.restUntil = now + sets.restMs;
         say(t('setDone').replace('{k}', k).replace('{n}', sets.restMs / 1000), false);
