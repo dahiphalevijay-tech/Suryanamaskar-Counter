@@ -92,3 +92,10 @@ export function mergeProgress(current, incoming) {
   }
   return { days, sessions: [...byTime.values()].sort((a, b) => a.t - b.t).slice(-3000) };
 }
+
+// The weight range for a height that gives a BMI of 18.5 to 24.9 (the WHO "normal" range), rounded to whole kg.
+export function healthyWeight(heightCm) {
+  const m = Number(heightCm) / 100;
+  if (!(m >= 0.9 && m <= 2.3)) return null;
+  return { low: Math.round(18.5 * m * m), high: Math.round(24.9 * m * m) };
+}

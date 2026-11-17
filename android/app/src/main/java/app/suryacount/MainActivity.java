@@ -35,6 +35,8 @@ import java.util.Locale;
 public class MainActivity extends Activity {
     private static final String START_URL = "https://appassets.androidplatform.net/web/index.html";
     private WebView web;
+    private volatile boolean backWanted = false;   // a page of the app wants the back button (Settings is open)
+    private Object backCallback = null;            // android.window.OnBackInvokedCallback on Android 13 and later
     private TextToSpeech tts;
     private boolean ttsReady;
     private PermissionRequest pendingRequest;
@@ -157,6 +159,21 @@ public class MainActivity extends Activity {
             pendingRequest.deny();
         }
         pendingRequest = null;
+    }
+
+    private void sendBack() {
+        if (web != null) web.evaluateJavascript("window.onBack && window.onBack()", null);
+    }
+
+    /** Android 12 and earlier: the back button closes the Settings page while it is open. */
+    @Override
+    @SuppressWarnings("deprecation")
+    public void onBackPressed() {
+        if (backWanted) {
+            sendBack();
+            return;
+        }
+        super.onBackPressed();
     }
 
     @Override
@@ -291,6 +308,36 @@ public class MainActivity extends Activity {
                 // leave blank
             }
             return "Suryanamaskar " + version + ", " + Build.MANUFACTURER + " " + Build.MODEL + ", Android " + Build.VERSION.RELEASE;
+        }
+
+        /** The Settings page is open (true) or closed (false): while open, the back button closes it. */
+        @JavascriptInterface
+        public void setBackWanted(final boolean wanted) {
+            runOnUiThread(() -> {
+                backWanted = wanted;
+                if (Build.VERSION.SDK_INT >= 33) {
+                    android.window.OnBackInvokedDispatcher d = getOnBackInvokedDispatcher();
+                    if (wanted && backCallback == null) {
+                        android.window.OnBackInvokedCallback cb = () -> sendBack();
+                        d.registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT, cb);
+                        backCallback = cb;
+                    } else if (!wanted && backCallback != null) {
+                        d.unregisterOnBackInvokedCallback((android.window.OnBackInvokedCallback) backCallback);
+                        backCallback = null;
+                    }
+                }
+            });
+        }
+
+        /** Like setReminder, plus a day on which part of the daily plan is done and what to say on that day. */
+        @JavascriptInterface
+        public void setReminder2(final boolean enabled, final int hour, final int minute, final String title,
+                                 final String text, final String lastDay, final String partDay, final String partText) {
+            getSharedPreferences(ReminderReceiver.PREFS, MODE_PRIVATE).edit()
+                    .putString("partDay", partDay == null ? "" : partDay)
+                    .putString("partText", partText == null ? "" : partText)
+                    .apply();
+            setReminder(enabled, hour, minute, title, text, lastDay);
         }
 
         /** Switches the daily reminder on or off and stores what it should say. */

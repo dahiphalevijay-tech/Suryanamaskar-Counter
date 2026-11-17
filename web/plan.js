@@ -12,10 +12,11 @@ function shift(key, n) {
 const stepFor = (target) => (target < 12 ? 1 : target < 24 ? 2 : 3);
 
 // Begins a plan from what the person has actually been doing lately (or from 3 a day with no history).
-export function startPlan(goal, days, today) {
+// `need` = on how many days the target must be met before it rises (2, or 3 for a gentler pace).
+export function startPlan(goal, days, today, need = 2) {
   const recent = Object.keys(days).filter((k) => k <= today && days[k] > 0).sort().slice(-3).map((k) => days[k]);
   const avg = recent.length ? Math.round(recent.reduce((a, b) => a + b, 0) / recent.length) : MIN;
-  return { goal, target: Math.max(MIN, Math.min(goal, avg)), since: today, lastEval: today };
+  return { goal, target: Math.max(MIN, Math.min(goal, avg)), since: today, lastEval: today, need };
 }
 
 // Called when the app is opened: moves the target at most once per day.
@@ -26,7 +27,7 @@ export function evaluatePlan(state, days, today) {
   for (let k = state.since; k < today; k = shift(k, 1)) if ((days[k] || 0) >= state.target) met += 1;
   const idle = [1, 2, 3].every((n) => !(days[shift(today, -n)] > 0)) && state.since <= shift(today, -3);
   if (idle) { next.target = Math.max(MIN, state.target - stepFor(state.target)); next.since = today; }
-  else if (met >= 2 && state.target < state.goal) { next.target = Math.min(state.goal, state.target + stepFor(state.target)); next.since = today; }
+  else if (met >= (state.need || 2) && state.target < state.goal) { next.target = Math.min(state.goal, state.target + stepFor(state.target)); next.since = today; }
   return next;
 }
 
@@ -46,4 +47,14 @@ export function splitSets(total, n) {
   const k = Math.max(1, Math.min(n, total));
   const base = Math.floor(total / k), extra = total % k;
   return Array.from({ length: k }, (_, i) => base + (i < extra ? 1 : 0));
+}
+
+// A starting suggestion from BMI, used only to propose a gentler goal and pace, never as a weight-loss promise.
+// A heavier body puts more load on wrists, knees and back in every round, so it is suggested a smaller goal
+// that rises more slowly. Returns null without a BMI.
+export function suggestPlan(bmiValue) {
+  if (!bmiValue) return null;
+  if (bmiValue >= 30) return { goal: 12, need: 3 };
+  if (bmiValue >= 25) return { goal: 24, need: 3 };
+  return { goal: 24, need: 2 };
 }

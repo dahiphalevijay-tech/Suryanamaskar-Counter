@@ -1,13 +1,13 @@
 import { POSES, POSE_INFO, lerpPose } from './poses.js';
 import { RepCounter, TRACKED_STEPS } from './counter.js';
-import { STR, SPEECH_LANG, MANTRAS } from './i18n.js';
+import { STR, SPEECH_LANG, MANTRAS, NAME_MEANINGS } from './i18n.js';
 import { drawShareCard, shareCard } from './share.js';
 import { pickPerson } from './person.js';
 
 const sunrisePhoto = new Image(); sunrisePhoto.src = './img/sunrise.jpg';
 const guidePhoto = new Image(); guidePhoto.src = './img/guide.jpg';
-import { dayKey, kcalFor, bmi, summarize, kcalSince, mergeProgress } from './stats.js';
-import { startPlan, evaluatePlan, todayPlan, splitSets } from './plan.js';
+import { dayKey, kcalFor, bmi, summarize, kcalSince, mergeProgress, healthyWeight } from './stats.js';
+import { startPlan, evaluatePlan, todayPlan, splitSets, suggestPlan } from './plan.js';
 
 // Where feedback emails go. The Send feedback button stays hidden until this is filled in.
 const FEEDBACK_EMAIL = '';
@@ -24,9 +24,12 @@ const t = (k) => (STR[lang] && STR[lang][k]) || STR.en[k] || k;
 function applyLang() {
   document.documentElement.lang = lang;
   document.querySelectorAll('[data-t]').forEach((el) => { el.textContent = t(el.dataset.t); });
+  document.querySelectorAll('[data-t-label]').forEach((el) => el.setAttribute('aria-label', t(el.dataset.tLabel)));
+  $('settingsBack').setAttribute('aria-label', t('back'));
+  renderNames();
   $('play').textContent = t(playing ? 'pause' : 'play');
   showPose(Math.round(animPos) % 12);
-  document.querySelectorAll('#planGoal option').forEach((o) => { if (Number(o.value)) o.textContent = t('planGoalOpt').replace('{n}', o.value); });
+  markSuggested();
   document.querySelectorAll('#setRest option').forEach((o) => { o.textContent = `${o.value} ${t('secShort')}`; });
   renderProgress();
   renderProfile();
@@ -54,14 +57,10 @@ function renderProgress() {
   const days = store.get('days', {});
   const sessions = store.get('sessions', []);
   const today = days[dayKey()] || 0;
-  $('todayBig').textContent = today;
+  drawHomeSun(days, today);
   $('sToday').textContent = today;
   $('sTotal').textContent = Object.values(days).reduce((a, b) => a + b, 0);
-  let streak = 0;
-  const d = new Date();
-  if (!days[dayKey(d)]) d.setDate(d.getDate() - 1);
-  while (days[dayKey(d)] > 0) { streak += 1; d.setDate(d.getDate() - 1); }
-  $('sStreak').textContent = streak;
+  $('sStreak').textContent = currentStreak();
   renderPlan(days);
   // calories: sessions saved before the weight was entered are worked out from the weight known now
   const w = Number($('weight').value);
@@ -118,6 +117,8 @@ function planToday(days = store.get('days', {})) {
 function renderPlan(days) {
   const p = planToday(days);
   $('planLine').hidden = !p;
+  $('setPlan').hidden = !!p;
+  $('planLine').classList.toggle('done', !!(p && !p.remaining));
   $('targetRow').hidden = !!p || Number($('sets').value) > 0;
   const nSets = Number($('sets').value);
   $('setRows').hidden = !nSets;
@@ -144,6 +145,66 @@ function renderLastSummary() {
 function renderProfile() {
   const b = bmi(Number($('weight').value), Number($('height').value));
   $('bmi').textContent = b ? `${t('bmi')}: ${b.toFixed(1)}` : '';
+  const hw = healthyWeight($('height').value);
+  $('healthy').textContent = hw ? t('healthy').replace('{a}', hw.low).replace('{b}', hw.high) : '';
+  markSuggested();
+}
+
+// BMI is used only to suggest a gentler starting goal and pace for the daily plan.
+const planSuggestion = () => suggestPlan(bmi(Number($('weight').value), Number($('height').value)));
+function markSuggested() {
+  const sug = planSuggestion();
+  document.querySelectorAll('#planGoal option').forEach((o) => {
+    if (Number(o.value)) o.textContent = t('planGoalOpt').replace('{n}', o.value) + (sug && sug.goal === Number(o.value) ? ` (${t('suggested')})` : '');
+  });
+  $('planSuggest').hidden = !sug;
+  if (sug) $('planSuggest').textContent = t(sug.need > 2 ? 'planSuggestSlow' : 'planSuggest').replace('{n}', sug.goal);
+}
+
+// ---------- the sunrise on the home and "Well done" screens ----------
+// The day's count sits in a sun rising over the horizon. Its 12 rays light up as the day's plan or target is
+// reached (without one, a ray for each round, up to 12), and the sun climbs a little as they do.
+const SVGNS = 'http://www.w3.org/2000/svg';
+function drawSunrise(svg, { count, label, lit, streak }) {
+  const el = (tag, attrs, parent = svg) => { const e = document.createElementNS(SVGNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent.append(e); return e; };
+  svg.textContent = '';
+  const id = svg.id;
+  const defs = el('defs', {});
+  const sky = el('linearGradient', { id: `${id}Sky`, x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
+  el('stop', { offset: '0', 'stop-color': '#B8420C' }, sky);
+  el('stop', { offset: '0.55', 'stop-color': '#E8731A' }, sky);
+  el('stop', { offset: '1', 'stop-color': '#F7A93B' }, sky);
+  const glow = el('radialGradient', { id: `${id}Glow`, cx: 0.5, cy: 0.5, r: 0.5 }, defs);
+  el('stop', { offset: '0', 'stop-color': '#FFE9B8', 'stop-opacity': '0.9' }, glow);
+  el('stop', { offset: '1', 'stop-color': '#FFE9B8', 'stop-opacity': '0' }, glow);
+  el('rect', { width: 300, height: 200, fill: `url(#${id}Sky)` });
+  const rise = lit / 12;
+  const cy = 202 - 16 * rise;
+  el('circle', { cx: 150, cy, r: 132, fill: `url(#${id}Glow)` });
+  for (let i = 0; i < 12; i++) {
+    const a = Math.PI * (1 - (i + 0.5) / 12);
+    const c = Math.cos(a), sn = Math.sin(a);
+    el('line', { class: 'ray', x1: 150 + c * 92, y1: cy - sn * 92, x2: 150 + c * 110, y2: cy - sn * 110,
+      stroke: i < lit ? '#FFF1CF' : '#A9440F', 'stroke-width': 5, 'stroke-linecap': 'round' });
+  }
+  el('circle', { cx: 150, cy, r: 84, fill: '#F7A93B' });
+  el('circle', { cx: 150, cy, r: 70, fill: '#FBC24E' });
+  const n = el('text', { x: 150, y: cy - 40, 'text-anchor': 'middle', 'font-size': String(count) .length > 3 ? 40 : 50, 'font-weight': 800, fill: '#4A1B0C' });
+  n.textContent = count;
+  const l = el('text', { x: 150, y: cy - 21, 'text-anchor': 'middle', 'font-size': 13, fill: '#4A1B0C' });
+  l.textContent = label;
+  if (streak > 1) {
+    const st = el('text', { x: 284, y: 24, 'text-anchor': 'end', 'font-size': 13, 'font-weight': 600, fill: '#FFE2A8' });
+    st.textContent = t('streakDays').replace('{n}', streak);
+  }
+  el('path', { class: 'curve', d: 'M0 200 Q150 184 300 200 Z' });
+  svg.setAttribute('aria-label', `${count} ${label}`);
+}
+function drawHomeSun(days, today) {
+  const p = planToday(days);
+  const goal = p ? p.target : Number($('target').value);
+  const lit = goal ? Math.min(12, Math.floor((12 * today) / goal)) : Math.min(12, today);
+  drawSunrise($('sunrise'), { count: today, label: goal ? t('ofToday').replace('{n}', goal) : t('today'), lit, streak: currentStreak() });
 }
 
 // ---------- tabs ----------
@@ -256,8 +317,45 @@ function say(text, flush = true) {
   } catch { /* speech not available */ }
 }
 const fullVoice = () => $('voiceMode').value === 'full';
+function speakName(text) {
+  try {
+    const B = window.AndroidBridge;
+    if (B && B.speakQueued) { B.speakQueued(text, 'hi-IN', true); return; }
+    if ('speechSynthesis' in window) { const u = new SpeechSynthesisUtterance(text); u.lang = 'hi-IN'; u.rate = 0.9; speechSynthesis.cancel(); speechSynthesis.speak(u); }
+  } catch { /* speech not available */ }
+}
+
+// ---------- the 12 names of Surya (Learn tab) ----------
+function renderNames() {
+  const list = $('names');
+  list.textContent = '';
+  const meanings = NAME_MEANINGS[lang] || NAME_MEANINGS.en;
+  MANTRAS.dev.forEach((dev, i) => {
+    const li = document.createElement('li');
+    const num = document.createElement('span'); num.className = 'n'; num.textContent = i + 1;
+    const txt = document.createElement('div'); txt.className = 't';
+    const b = document.createElement('b'); b.textContent = dev;
+    const sm = document.createElement('small'); sm.textContent = `${MANTRAS.en[i]} · ${meanings[i]}`;
+    txt.append(b, sm);
+    const play = document.createElement('button');
+    play.textContent = '▶'; play.setAttribute('aria-label', MANTRAS.en[i]);
+    play.addEventListener('click', () => speakName(dev));
+    li.append(num, txt, play);
+    list.append(li);
+  });
+}
 const spokenPose = (step) => { const info = POSE_INFO[step - 1]; return `${lang === 'en' ? info.en : info.dev}. ${t(info.breath)}`; };
 const mantraFor = (n) => (lang === 'en' ? MANTRAS.en : MANTRAS.dev)[((n % 12) + 12) % 12];
+// Speaks the round's name and shows it on screen for a few seconds: "Round 3 · ॐ सूर्याय नमः".
+let nameTimer = 0;
+function chantName(n) {
+  say(mantraFor(n), false);
+  const box = $('nameBox');
+  box.textContent = `${t('roundN').replace('{n}', n + 1)} · ${MANTRAS.dev[((n % 12) + 12) % 12]}`;
+  box.hidden = false;
+  clearTimeout(nameTimer);
+  nameTimer = setTimeout(() => { box.hidden = true; }, 4000);
+}
 const STAGE_VOICE = { far: 'vFar', stand: 'vStand', turn: 'vTurn', lost: 'vLost' };
 const voiceState = { stage: '', stageAt: 0, target: 0, importantAt: 0, calibSeq: 0 };
 
@@ -361,7 +459,7 @@ async function start() {
   counter.o.mode = $('strictness').value;
   counter.reset();
   sessionCount = 0;
-  sess = { t: Date.now(), ms: 0, rounds: 0, rej: 0, steps: new Array(12).fill(0) };
+  sess = { t: Date.now(), ms: 0, rounds: 0, rej: 0, steps: new Array(12).fill(0), mantra: $('mantra').checked };
   Object.assign(voiceState, { stage: '', stageAt: 0, target: 0, importantAt: 0, calibSeq: 0 });
   startedAt = lastSeenAt = lastActiveAt = performance.now();
   lastStep = 0;
@@ -379,6 +477,7 @@ async function start() {
   }
   sessionTarget = sets ? sets.ends[sets.ends.length - 1] : plan ? plan.remaining : Number($('target').value);
   $('restBox').hidden = true;
+  $('nameBox').hidden = true;
   showSetLabel();
   $('done').hidden = true;
   $('guidePanel').hidden = true;
@@ -461,7 +560,7 @@ function currentStreak() {
 }
 function showDone(sn) {
   doneSession = sn;
-  $('doneCount').textContent = sn.n;
+  drawSunrise($('doneSun'), { count: sn.n, label: t('iTotal'), lit: 12, streak: currentStreak() });
   const box = $('doneStats');
   box.textContent = '';
   const rows = sessionStats(sn);
@@ -474,6 +573,7 @@ function showDone(sn) {
     }
     rows.push({ label: t('iMissed'), value: worst ? `${poseName(worst.step)} (${worst.missed})` : t('iNoMiss') });
   }
+  if (sn.mantra && sn.n > 0) rows.push({ label: t('namesDone'), value: sn.n >= 12 ? t('allNames') : t('namesRange').replace('{a}', 1).replace('{b}', sn.n) });
   for (const r of rows) {
     const dt = document.createElement('dt'); dt.textContent = r.label;
     const dd = document.createElement('dd'); dd.textContent = r.value;
@@ -640,7 +740,7 @@ function loop(now) {
     voiceState.calibSeq = out.calibSeq;
     voiceState.stage = 'ok'; voiceState.target = 0;
     say(t('begin'), true); voiceState.importantAt = now; voiceState.afterImportant = true;
-    if ($('mantra').checked) say(mantraFor(sessionCount), false);
+    if ($('mantra').checked) chantName(sessionCount);
   }
   if (!tracking) {
     const key = STAGE_VOICE[out.stage];
@@ -697,7 +797,7 @@ function loop(now) {
         $('restBox').hidden = false; $('guidePanel').hidden = true;
       }
     } else if (sessionTarget && sessionCount === sessionTarget) { noticeUntil = now + 4000; $('hint').textContent = t('done'); say(t('done'), false); }
-    else if ($('mantra').checked) say(mantraFor(sessionCount), false);
+    else if ($('mantra').checked) chantName(sessionCount);
   }
 }
 
@@ -737,13 +837,55 @@ for (const id of ['facing', 'target', 'strictness', 'weight', 'height', 'theme',
 $('lens').addEventListener('change', () => store.set('lens', $('lens').value));
 $('sets').addEventListener('change', () => renderPlan());
 $('weight').addEventListener('change', renderProgress);
-$('kAdd').addEventListener('click', () => { $('weight').scrollIntoView({ block: 'center' }); $('weight').focus(); });
+$('kAdd').addEventListener('click', () => openSettings('weight'));
+
+// ---------- settings page (gear icon) ----------
+// The phone's back button closes it instead of leaving the app.
+function setBackWanted(on) { try { if (window.AndroidBridge && window.AndroidBridge.setBackWanted) window.AndroidBridge.setBackWanted(on); } catch { /* not in the app */ } }
+function openSettings(focusId) {
+  if (running) return;
+  $('settings').hidden = false;
+  $('settings').scrollTop = 0;
+  setBackWanted(true);
+  if (focusId) setTimeout(() => { $(focusId).scrollIntoView({ block: 'center' }); if (focusId === 'weight') $(focusId).focus(); }, 50);
+}
+function closeSettings() {
+  $('settings').hidden = true;
+  setBackWanted(false);
+  disarmClear();
+  renderProgress(); renderLastSummary();
+}
+window.onBack = () => { if (!$('settings').hidden) { closeSettings(); return true; } return false; };
+$('gear').addEventListener('click', () => openSettings());
+$('settingsBack').addEventListener('click', closeSettings);
+$('planLine').addEventListener('click', () => openSettings('planRow'));
+$('setPlan').addEventListener('click', () => openSettings('planRow'));
+
+// ---------- clear all progress (tap twice) ----------
+let clearArmed = 0;
+function disarmClear() { clearArmed = 0; $('clearBtn').classList.remove('armed'); $('clearBtn').textContent = t('clearBtn'); }
+$('clearBtn').addEventListener('click', () => {
+  if (!clearArmed || Date.now() - clearArmed > 5000) {
+    clearArmed = Date.now();
+    $('clearBtn').classList.add('armed');
+    $('clearBtn').textContent = t('clearConfirm');
+    setTimeout(() => { if (clearArmed && Date.now() - clearArmed >= 5000) disarmClear(); }, 5100);
+    return;
+  }
+  for (const k of ['days', 'sessions', 'plan']) localStorage.removeItem(k);
+  $('planGoal').value = '0';
+  disarmClear();
+  renderProgress(); renderLastSummary(); syncReminder();
+  fileMsg(t('cleared'));
+});
 
 // ---------- gradual daily plan ----------
 $('planGoal').value = String((store.get('plan', null) || {}).goal || 0);
 $('planGoal').addEventListener('change', () => {
   const goal = Number($('planGoal').value);
-  store.set('plan', goal ? startPlan(goal, store.get('days', {}), dayKey()) : null);
+  const sug = planSuggestion();
+  store.set('plan', goal ? startPlan(goal, store.get('days', {}), dayKey(), sug ? sug.need : 2) : null);
+  syncReminder();
   renderProgress();
 });
 
@@ -831,13 +973,26 @@ function lastPractisedDay() {
   const days = store.get('days', {});
   return Object.keys(days).filter((k) => days[k] > 0).sort().pop() || '';
 }
+// Without a plan the reminder is skipped on a day already practised. With a plan it is skipped only once
+// today's plan is finished; a day with some rounds done gets "N rounds left in today's plan".
 function syncReminder() {
   if (!canRemind()) return;
   $('remindTimeRow').hidden = !$('remind').checked;
+  const p = planToday();
+  $('remindNote').hidden = !$('remind').checked;
+  $('remindNote').textContent = t(p ? 'remNotePlan' : 'remNote');
   const [hh, mm] = ($('remindTime').value || '06:00').split(':').map(Number);
   const streak = currentStreak();
   const text = streak > 1 ? t('remStreak').replace('{n}', streak) : t('remText');
-  try { window.AndroidBridge.setReminder($('remind').checked, hh || 0, mm || 0, t('appName'), text, lastPractisedDay()); } catch (e) { console.error(e); }
+  let doneDay = lastPractisedDay(), partDay = '', partText = '';
+  if (p) {
+    doneDay = p.remaining ? '' : dayKey();
+    if (p.remaining && p.done) { partDay = dayKey(); partText = t('remPlanLeft').replace('{n}', p.remaining); }
+  }
+  try {
+    if (window.AndroidBridge.setReminder2) window.AndroidBridge.setReminder2($('remind').checked, hh || 0, mm || 0, t('appName'), text, doneDay, partDay, partText);
+    else window.AndroidBridge.setReminder($('remind').checked, hh || 0, mm || 0, t('appName'), text, doneDay);
+  } catch (e) { console.error(e); }
 }
 if (canRemind()) {
   $('remindRow').hidden = false;

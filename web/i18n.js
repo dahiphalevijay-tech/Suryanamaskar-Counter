@@ -1,5 +1,15 @@
 export const STR = {
   en: {
+    gProfile: 'Profile', gPractice: 'Practice', gCamera: 'Camera', gApp: 'App', gData: 'Your data', gHelp: 'Help', back: 'Back',
+    healthy: 'Healthy weight for your height: {a}–{b} kg (BMI 18.5–24.9).',
+    planSuggest: 'Suggested for you: build up to {n} a day.', planSuggestSlow: 'Suggested for you: build up to {n} a day, rising more slowly.',
+    suggested: 'suggested', setPlan: 'Set a daily plan',
+    remNote: 'The reminder comes only on days you have not practised yet.', remNotePlan: "The reminder comes on days you have not yet finished today's plan.",
+    remPlanLeft: "{n} rounds left in today's plan",
+    clearBtn: 'Clear all progress', clearConfirm: 'Tap again to delete all progress', cleared: 'All progress cleared',
+    clearNote: 'Your weight, height and settings are kept. Save a file first if you may want the progress back.',
+    names: '12 names of Surya', namesNote: 'Turn on "Surya mantra each round" in Settings to hear one name at the start of each round.',
+    namesDone: 'Names chanted', namesRange: '{a} to {b}', allNames: 'All 12', roundN: 'Round {n}', ofToday: 'of {n} today',
     dark: 'Low light. Turn on a light or face a window, so the counting does not miss steps.',
     sets: 'Sets', setsOff: 'Off', setRounds: 'Rounds in each set', setRest: 'Rest between sets',
     setDone: 'Set {k} complete. Rest for {n} seconds.', setNext: 'Set {k}', rest: 'Rest', skipRest: 'Tap to skip the rest', rest10: 'Ten seconds', setOf: 'Set {k} of {n}',
@@ -57,6 +67,16 @@ export const STR = {
     notCounted: 'Not counted: steps were missed',
   },
   mr: {
+    gProfile: 'प्रोफाइल', gPractice: 'सराव', gCamera: 'कॅमेरा', gApp: 'अ‍ॅप', gData: 'तुमचा डेटा', gHelp: 'मदत', back: 'मागे',
+    healthy: 'तुमच्या उंचीसाठी योग्य वजन: {a}–{b} किलो (बीएमआय १८.५–२४.९).',
+    planSuggest: 'तुमच्यासाठी सुचवलेले: रोज {n} पर्यंत वाढवा.', planSuggestSlow: 'तुमच्यासाठी सुचवलेले: रोज {n} पर्यंत, हळूहळू वाढवा.',
+    suggested: 'सुचवलेले', setPlan: 'रोजची योजना ठरवा',
+    remNote: 'ज्या दिवशी अजून सराव केला नाही, त्याच दिवशी आठवण येते.', remNotePlan: 'ज्या दिवशी आजची योजना अजून पूर्ण झाली नाही, त्या दिवशी आठवण येते.',
+    remPlanLeft: 'आजच्या योजनेतील {n} फेऱ्या बाकी',
+    clearBtn: 'सर्व प्रगती पुसा', clearConfirm: 'सर्व प्रगती पुसण्यासाठी पुन्हा टॅप करा', cleared: 'सर्व प्रगती पुसली',
+    clearNote: 'तुमचे वजन, उंची आणि सेटिंग्ज राहतात. प्रगती परत हवी असेल तर आधी फाइल जतन करा.',
+    names: 'सूर्याची १२ नावे', namesNote: 'प्रत्येक फेरीच्या सुरुवातीला एक नाव ऐकण्यासाठी सेटिंग्जमध्ये "प्रत्येक फेरीला सूर्य मंत्र" सुरू करा.',
+    namesDone: 'म्हटलेली नावे', namesRange: '{a} ते {b}', allNames: 'सर्व १२', roundN: 'फेरी {n}', ofToday: 'आज {n} पैकी',
     dark: 'प्रकाश कमी आहे. दिवा लावा किंवा खिडकीकडे तोंड करा, म्हणजे मोजणीत पायऱ्या सुटणार नाहीत.',
     sets: 'संच', setsOff: 'बंद', setRounds: 'प्रत्येक संचात फेऱ्या', setRest: 'संचांमधील विश्रांती',
     setDone: 'संच {k} पूर्ण. {n} सेकंद विश्रांती घ्या.', setNext: 'संच {k}', rest: 'विश्रांती', skipRest: 'विश्रांती वगळण्यासाठी टॅप करा', rest10: 'दहा सेकंद', setOf: 'संच {k} / {n}',
@@ -114,6 +134,16 @@ export const STR = {
     notCounted: 'मोजले नाही: काही पायऱ्या चुकल्या',
   },
   hi: {
+    gProfile: 'प्रोफ़ाइल', gPractice: 'अभ्यास', gCamera: 'कैमरा', gApp: 'ऐप', gData: 'आपका डेटा', gHelp: 'मदद', back: 'वापस',
+    healthy: 'आपकी लंबाई के लिए स्वस्थ वज़न: {a}–{b} किलो (बीएमआई 18.5–24.9).',
+    planSuggest: 'आपके लिए सुझाव: रोज़ {n} तक बढ़ाएँ.', planSuggestSlow: 'आपके लिए सुझाव: रोज़ {n} तक, धीरे-धीरे बढ़ाएँ.',
+    suggested: 'सुझाया गया', setPlan: 'रोज़ की योजना बनाएँ',
+    remNote: 'रिमाइंडर सिर्फ़ उन्हीं दिनों आता है जब अभी तक अभ्यास नहीं हुआ.', remNotePlan: 'रिमाइंडर उन दिनों आता है जब आज की योजना अभी पूरी नहीं हुई.',
+    remPlanLeft: 'आज की योजना के {n} चक्र बाकी',
+    clearBtn: 'पूरी प्रगति मिटाएँ', clearConfirm: 'पूरी प्रगति मिटाने के लिए फिर से टैप करें', cleared: 'पूरी प्रगति मिटा दी गई',
+    clearNote: 'आपका वज़न, लंबाई और सेटिंग्स बनी रहती हैं. प्रगति वापस चाहिए तो पहले फ़ाइल सहेज लें.',
+    names: 'सूर्य के 12 नाम', namesNote: 'हर चक्र की शुरुआत में एक नाम सुनने के लिए सेटिंग्स में "हर चक्र पर सूर्य मंत्र" चालू करें.',
+    namesDone: 'बोले गए नाम', namesRange: '{a} से {b}', allNames: 'सभी 12', roundN: 'चक्र {n}', ofToday: 'आज {n} में से',
     dark: 'रोशनी कम है. बत्ती जलाएँ या खिड़की की ओर मुँह करें, ताकि गिनती में चरण न छूटें.',
     sets: 'सेट', setsOff: 'बंद', setRounds: 'हर सेट में चक्र', setRest: 'सेट के बीच विश्राम',
     setDone: 'सेट {k} पूरा. {n} सेकंड विश्राम करें.', setNext: 'सेट {k}', rest: 'विश्राम', skipRest: 'विश्राम छोड़ने के लिए टैप करें', rest10: 'दस सेकंड', setOf: 'सेट {k} / {n}',
@@ -179,4 +209,14 @@ export const MANTRAS = {
     'ॐ हिरण्यगर्भाय नमः', 'ॐ मरीचये नमः', 'ॐ आदित्याय नमः', 'ॐ सवित्रे नमः', 'ॐ अर्काय नमः', 'ॐ भास्कराय नमः'],
   en: ['Om Mitraya Namaha', 'Om Ravaye Namaha', 'Om Suryaya Namaha', 'Om Bhanave Namaha', 'Om Khagaya Namaha', 'Om Pushne Namaha',
     'Om Hiranyagarbhaya Namaha', 'Om Marichaye Namaha', 'Om Adityaya Namaha', 'Om Savitre Namaha', 'Om Arkaya Namaha', 'Om Bhaskaraya Namaha'],
+};
+
+// Short meanings of the 12 names, as commonly translated. Traditions word them differently.
+export const NAME_MEANINGS = {
+  en: ['Friend of all', 'The shining one', 'Who stirs all to action', 'Who gives light', 'Who moves through the sky',
+    'Giver of nourishment', 'The golden source', 'Lord of the rays', 'Son of Aditi', 'Giver of life', 'Worthy of praise', 'Giver of wisdom'],
+  mr: ['सर्वांचा मित्र', 'तेजस्वी', 'सर्वांना कार्याची प्रेरणा देणारा', 'प्रकाश देणारा', 'आकाशात संचार करणारा',
+    'पोषण करणारा', 'सुवर्णमय उगम', 'किरणांचा स्वामी', 'अदितीचा पुत्र', 'जीवन देणारा', 'स्तुतीस योग्य', 'ज्ञानाचा प्रकाश देणारा'],
+  hi: ['सबके मित्र', 'प्रकाशमान', 'सबको कर्म की प्रेरणा देने वाले', 'प्रकाश देने वाले', 'आकाश में विचरण करने वाले',
+    'पोषण देने वाले', 'स्वर्णिम मूल', 'किरणों के स्वामी', 'अदिति के पुत्र', 'जीवन देने वाले', 'स्तुति के योग्य', 'ज्ञान का प्रकाश देने वाले'],
 };

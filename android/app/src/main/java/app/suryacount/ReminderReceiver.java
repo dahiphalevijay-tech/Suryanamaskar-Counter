@@ -69,7 +69,8 @@ public class ReminderReceiver extends BroadcastReceiver {
         Notification n = new Notification.Builder(context, CHANNEL)
                 .setSmallIcon(R.drawable.ic_stat_sun)
                 .setContentTitle(p.getString("title", context.getString(R.string.app_name)))
-                .setContentText(p.getString("text", ""))
+                .setContentText(today.equals(p.getString("partDay", "")) && !p.getString("partText", "").isEmpty()
+                        ? p.getString("partText", "") : p.getString("text", ""))
                 .setContentIntent(open)
                 .setAutoCancel(true)
                 .build();

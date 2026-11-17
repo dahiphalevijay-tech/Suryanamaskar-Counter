@@ -1,6 +1,6 @@
 import assert from 'node:assert';
-import { startPlan, evaluatePlan, todayPlan, splitSets } from '../web/plan.js';
-import { mergeProgress, kcalSince } from '../web/stats.js';
+import { startPlan, evaluatePlan, todayPlan, splitSets, suggestPlan } from '../web/plan.js';
+import { mergeProgress, kcalSince, healthyWeight } from '../web/stats.js';
 
 function test(name, fn) { fn(); console.log('ok  ' + name); }
 const day = (n) => `2026-12-${String(n).padStart(2, '0')}`;
@@ -74,5 +74,23 @@ test('the plan is split evenly into sets', () => {
   assert.deepEqual(splitSets(12, 5), [3, 3, 2, 2, 2]);
   assert.deepEqual(splitSets(2, 4), [1, 1]);
   assert.deepEqual(splitSets(7, 1), [7]);
+});
+test('a gentler plan needs three good days before it rises', () => {
+  let p = startPlan(24, {}, day(1), 3);
+  const days = { [day(1)]: 3, [day(2)]: 3 };
+  p = evaluatePlan(p, days, day(3)); assert.equal(p.target, 3);
+  days[day(3)] = 3;
+  p = evaluatePlan(p, days, day(4)); assert.equal(p.target, 4);
+  assert.equal(evaluatePlan(startPlan(24, {}, day(1)), days, day(3)).target, 4);   // the usual pace: two days
+});
+test('BMI only suggests a gentler start', () => {
+  assert.equal(suggestPlan(0), null);
+  assert.deepEqual(suggestPlan(22), { goal: 24, need: 2 });
+  assert.deepEqual(suggestPlan(27), { goal: 24, need: 3 });
+  assert.deepEqual(suggestPlan(32), { goal: 12, need: 3 });
+});
+test('healthy weight range for a height', () => {
+  assert.deepEqual(healthyWeight(178), { low: 59, high: 79 });
+  assert.equal(healthyWeight(0), null);
 });
 console.log('all plan tests passed');

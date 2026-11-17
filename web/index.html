@@ -9,14 +9,20 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header><h1 data-t="appName">Suryanamaskar</h1></header>
+<header>
+  <h1 data-t="appName">Suryanamaskar</h1>
+  <button id="gear" class="icon-btn" aria-label="Settings" data-t-label="settings">
+    <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M10.3 2.6h3.4l.5 2.6 1.8.8 2.2-1.5 2.4 2.4-1.5 2.2.8 1.8 2.6.5v3.4l-2.6.5-.8 1.8 1.5 2.2-2.4 2.4-2.2-1.5-1.8.8-.5 2.6h-3.4l-.5-2.6-1.8-.8-2.2 1.5-2.4-2.4 1.5-2.2-.8-1.8-2.6-.5v-3.4l2.6-.5.8-1.8-1.5-2.2 2.4-2.4 2.2 1.5 1.8-.8z"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+  </button>
+</header>
 
 <main>
   <section id="tab-practice" class="tab active">
     <div id="idle">
-      <div class="today-ring"><span id="todayBig">0</span><small data-t="today">today</small></div>
+      <svg id="sunrise" class="sunrise" viewBox="0 0 300 200" role="img" aria-label=""></svg>
       <p class="summary" id="lastSummary" hidden></p>
-      <p class="summary plan" id="planLine" hidden></p>
+      <button class="summary plan" id="planLine" hidden></button>
+      <button class="link-btn" id="setPlan" data-t="setPlan" hidden>Set a daily plan</button>
       <label class="row" id="targetRow"><span data-t="target">Target</span>
         <select id="target"><option value="0" data-t="noTarget">No target</option><option>12</option><option>24</option><option>54</option><option>108</option></select>
       </label>
@@ -44,6 +50,7 @@
         <div class="hint" id="hint"></div>
         <div id="tuneBox" hidden></div>
         <div id="setLabel" hidden></div>
+        <div id="nameBox" hidden></div>
         <button id="restBox" hidden><small data-t="rest">Rest</small><b id="restTime">60</b><small data-t="skipRest">Tap to skip the rest</small></button>
       </div>
       <div class="dots" id="dots"></div>
@@ -59,7 +66,7 @@
     </div>
     <div id="done" hidden>
       <p class="done-title" data-t="wellDone">Well done</p>
-      <div class="today-ring"><span id="doneCount">0</span><small data-t="iTotal">Suryanamaskars</small></div>
+      <svg id="doneSun" class="sunrise" viewBox="0 0 300 200" role="img" aria-label=""></svg>
       <dl class="insights" id="doneStats"></dl>
       <div class="controls">
         <button id="shareBtn" class="primary" data-t="share">Share</button>
@@ -80,6 +87,9 @@
     <label class="row"><span data-t="speed">Speed</span>
       <select id="speed"><option value="0.5" data-t="slow">Slow</option><option value="1" selected data-t="normal">Normal</option><option value="1.8" data-t="fast">Fast</option></select>
     </label>
+    <h2 data-t="names">12 names of Surya</h2>
+    <ol class="names" id="names"></ol>
+    <p class="note" data-t="namesNote"></p>
   </section>
 
   <section id="tab-progress" class="tab">
@@ -101,39 +111,6 @@
     </div>
     <div class="bars" id="bars"></div>
     <dl class="insights" id="insights"></dl>
-    <h2 data-t="settings">Settings</h2>
-    <label class="row"><span data-t="weight">Weight (kg)</span><input type="number" id="weight" inputmode="decimal" min="20" max="250" step="0.5" placeholder="—"></label>
-    <label class="row"><span data-t="height">Height (cm)</span><input type="number" id="height" inputmode="numeric" min="90" max="230" step="1" placeholder="—"></label>
-    <p class="note" id="bmi"></p>
-    <label class="row"><span data-t="planGoal">Daily plan</span>
-      <select id="planGoal"><option value="0" data-t="planOff">Off</option><option value="12"></option><option value="24"></option><option value="54"></option><option value="108"></option></select></label>
-    <p class="note" data-t="planNote"></p>
-    <label class="row"><span data-t="language">Language</span>
-      <select id="lang"><option value="en">English</option><option value="mr">मराठी</option><option value="hi">हिन्दी</option></select></label>
-    <label class="row" id="remindRow" hidden><span data-t="remind">Daily reminder</span><input type="checkbox" id="remind"></label>
-    <label class="row" id="remindTimeRow" hidden><span data-t="remindTime">Reminder time</span><input type="time" id="remindTime" value="06:00"></label>
-    <label class="row"><span data-t="strictness">Step checking</span>
-      <select id="strictness"><option value="easy" data-t="easy">Easy</option><option value="standard" selected data-t="standard">Standard</option><option value="strict" data-t="strict">Strict</option></select></label>
-    <label class="row"><span data-t="voiceMode">Voice</span>
-      <select id="voiceMode"><option value="full" selected data-t="vFull">Poses, breathing and count</option><option value="count" data-t="vCount">Count only</option><option value="off" data-t="vOff">Off</option></select></label>
-    <label class="row"><span data-t="mantra">Surya mantra each round</span><input type="checkbox" id="mantra"></label>
-    <label class="row"><span data-t="autoFinish">Finish by itself when I walk away</span><input type="checkbox" id="autoFinish" checked></label>
-    <label class="row"><span data-t="camera">Camera</span>
-      <select id="facing"><option value="user" data-t="front">Front</option><option value="environment" data-t="back">Back</option></select></label>
-    <label class="row"><span data-t="lens">Camera lens</span>
-      <select id="lens"><option value="" data-t="lensAuto">Automatic</option></select></label>
-    <label class="row"><span data-t="theme">Appearance</span>
-      <select id="theme"><option value="system" data-t="themeSystem">Follow phone</option><option value="light" data-t="themeLight">Light</option><option value="dark" data-t="themeDark">Dark</option></select></label>
-    <label class="row"><span data-t="showNumbers">Show tuning numbers</span><input type="checkbox" id="optNumbers"></label>
-    <button id="howTo" class="wide-btn" data-t="howTo">How to use</button>
-    <button id="healthBtn" class="wide-btn" data-t="healthBtn">Health and safety</button>
-    <button id="feedbackBtn" class="wide-btn" data-t="feedback" hidden>Send feedback</button>
-    <button id="saveBtn" class="wide-btn" data-t="saveBtn">Save progress to a file</button>
-    <button id="restoreBtn" class="wide-btn" data-t="restoreBtn">Restore progress from a file</button>
-    <input type="file" id="restoreFile" accept="application/json,.json" hidden>
-    <p class="note" data-t="backupNote"></p>
-    <p class="summary" id="fileMsg" hidden></p>
-    <p class="private" data-t="privacy">Nothing is recorded. The camera picture never leaves your phone.</p>
   </section>
 </main>
 
@@ -142,6 +119,54 @@
   <button data-tab="learn" data-t="learn">Learn</button>
   <button data-tab="progress" data-t="progress">Progress</button>
 </nav>
+<div id="settings" class="sheet settings" hidden>
+  <div class="sheet-bar"><button id="settingsBack" class="icon-btn" aria-label="Back"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><h2 data-t="settings">Settings</h2></div>
+  <div class="sheet-body">
+    <h2 data-t="gProfile"></h2>
+    <label class="row"><span data-t="weight">Weight (kg)</span><input type="number" id="weight" inputmode="decimal" min="20" max="250" step="0.5" placeholder="—"></label>
+    <label class="row"><span data-t="height">Height (cm)</span><input type="number" id="height" inputmode="numeric" min="90" max="230" step="1" placeholder="—"></label>
+    <p class="note" id="bmi"></p>
+    <p class="note" id="healthy"></p>
+    <h2 data-t="gPractice"></h2>
+    <label class="row" id="planRow"><span data-t="planGoal">Daily plan</span>
+      <select id="planGoal"><option value="0" data-t="planOff">Off</option><option value="12"></option><option value="24"></option><option value="54"></option><option value="108"></option></select></label>
+    <p class="note plan" id="planSuggest" hidden></p>
+    <p class="note" data-t="planNote"></p>
+    <label class="row"><span data-t="strictness">Step checking</span>
+      <select id="strictness"><option value="easy" data-t="easy">Easy</option><option value="standard" selected data-t="standard">Standard</option><option value="strict" data-t="strict">Strict</option></select></label>
+    <label class="row"><span data-t="voiceMode">Voice</span>
+      <select id="voiceMode"><option value="full" selected data-t="vFull">Poses, breathing and count</option><option value="count" data-t="vCount">Count only</option><option value="off" data-t="vOff">Off</option></select></label>
+    <label class="row"><span data-t="mantra">Surya mantra each round</span><input type="checkbox" id="mantra"></label>
+    <label class="row"><span data-t="autoFinish">Finish by itself when I walk away</span><input type="checkbox" id="autoFinish" checked></label>
+    <label class="row" id="remindRow" hidden><span data-t="remind">Daily reminder</span><input type="checkbox" id="remind"></label>
+    <label class="row" id="remindTimeRow" hidden><span data-t="remindTime">Reminder time</span><input type="time" id="remindTime" value="06:00"></label>
+    <p class="note" id="remindNote" hidden></p>
+    <h2 data-t="gCamera"></h2>
+    <label class="row"><span data-t="camera">Camera</span>
+      <select id="facing"><option value="user" data-t="front">Front</option><option value="environment" data-t="back">Back</option></select></label>
+    <label class="row"><span data-t="lens">Camera lens</span>
+      <select id="lens"><option value="" data-t="lensAuto">Automatic</option></select></label>
+    <label class="row"><span data-t="showNumbers">Show tuning numbers</span><input type="checkbox" id="optNumbers"></label>
+    <h2 data-t="gApp"></h2>
+    <label class="row"><span data-t="language">Language</span>
+      <select id="lang"><option value="en">English</option><option value="mr">मराठी</option><option value="hi">हिन्दी</option></select></label>
+    <label class="row"><span data-t="theme">Appearance</span>
+      <select id="theme"><option value="system" data-t="themeSystem">Follow phone</option><option value="light" data-t="themeLight">Light</option><option value="dark" data-t="themeDark">Dark</option></select></label>
+    <h2 data-t="gData"></h2>
+    <button id="saveBtn" class="wide-btn" data-t="saveBtn">Save progress to a file</button>
+    <button id="restoreBtn" class="wide-btn" data-t="restoreBtn">Restore progress from a file</button>
+    <input type="file" id="restoreFile" accept="application/json,.json" hidden>
+    <p class="note" data-t="backupNote"></p>
+    <button id="clearBtn" class="wide-btn danger" data-t="clearBtn">Clear all progress</button>
+    <p class="note" data-t="clearNote"></p>
+    <p class="summary" id="fileMsg" hidden></p>
+    <h2 data-t="gHelp"></h2>
+    <button id="howTo" class="wide-btn" data-t="howTo">How to use</button>
+    <button id="healthBtn" class="wide-btn" data-t="healthBtn">Health and safety</button>
+    <button id="feedbackBtn" class="wide-btn" data-t="feedback" hidden>Send feedback</button>
+    <p class="private" data-t="privacy">Nothing is recorded. The camera picture never leaves your phone.</p>
+  </div>
+</div>
 <div id="health" class="sheet" hidden>
   <h2 data-t="hTitle">Before you begin</h2>
   <p data-t="hIntro"></p>
