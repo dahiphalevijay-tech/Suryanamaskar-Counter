@@ -13,18 +13,17 @@ KEY = os.environ["SARVAM_API_KEY"]
 OUT = "voice-test"
 os.makedirs(OUT, exist_ok=True)
 
-VOICES = {"vipul": "vipul_hi_social", "ritu": "ritu_hi_sales"}
+VOICES = {"vijay": "vijay_ta_narration"}
 
 # (file name, language, text, pace)
 LINES = [
-    ("1_english_085", "en-IN", "Raise your arms. Breathe in slowly.", 0.85),
-    ("2_marathi_075", "mr-IN", "हात वर करा. हळू श्वास घ्या.", 0.75),
-    ("3_marathi_085", "mr-IN", "हात वर करा. हळू श्वास घ्या.", 0.85),
-    ("4_marathi_100", "mr-IN", "हात वर करा. हळू श्वास घ्या.", 1.0),
-    ("5_hindi_085", "hi-IN", "हाथ ऊपर उठाइए. धीरे से साँस लीजिए.", 0.85),
-    ("6_om_A_085", "hi-IN", "ओम् मित्राय नमः", 0.85),
-    ("7_om_B_085", "hi-IN", "ओम मित्राय नमः", 0.85),
-    ("8_om_C_085", "hi-IN", "ओम मित्राय नमह", 0.85),
+    ("1_english_075", "en-IN", "Raise your arms. Breathe in slowly.", 0.75),
+    ("2_english_085", "en-IN", "Raise your arms. Breathe in slowly.", 0.85),
+    ("3_marathi_075", "mr-IN", "हात वर करा. हळू श्वास घ्या.", 0.75),
+    ("4_marathi_085", "mr-IN", "हात वर करा. हळू श्वास घ्या.", 0.85),
+    ("5_hindi_075", "hi-IN", "हाथ ऊपर उठाइए. धीरे से साँस लीजिए.", 0.75),
+    ("6_om_075", "hi-IN", "ओम् मित्राय नमः", 0.75),
+    ("7_om_085", "hi-IN", "ओम् मित्राय नमः", 0.85),
 ]
 
 
