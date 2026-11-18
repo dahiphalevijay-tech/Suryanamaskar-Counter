@@ -1,0 +1,18 @@
+name: Voice test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  voices:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Make sample clips
+        env:
+          SARVAM_API_KEY: ${{ secrets.SARVAM_API_KEY }}
+        run: python3 tools/voice_test.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: voice-test
+          path: voice-test/
