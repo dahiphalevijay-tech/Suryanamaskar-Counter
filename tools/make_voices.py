@@ -101,6 +101,8 @@ def main():
     manifest = {}
     for voice in VOICES:
         have = {f[:-4] for f in os.listdir(f"{OUT}/{voice}") if f.endswith(".ogg")}
+        for old in have - wanted:  # sentences the app no longer speaks
+            os.remove(f"{OUT}/{voice}/{old}.ogg")
         manifest[voice] = sorted(have & wanted)
     json.dump(manifest, open(f"{OUT}/manifest.json", "w"), separators=(",", ":"))
     print({v: len(k) for v, k in manifest.items()}, "clips in the app")

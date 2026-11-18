@@ -17,7 +17,7 @@ export const POSES = [prayer, raised, bend, lungeA, plank, eight, cobra, mountai
 
 export const POSE_INFO = [
   { sa: 'Pranamasana', dev: 'प्रणामासन', en: 'Prayer pose', breath: 'out' },
-  { sa: 'Hasta Uttanasana', dev: 'हस्तउत्तानासन', en: 'Raised arms pose', breath: 'in' },
+  { sa: 'Hasta Uttanasana', dev: 'हस्त उत्तानासन', en: 'Raised arms pose', breath: 'in' },
   { sa: 'Padahastasana', dev: 'पादहस्तासन', en: 'Forward bend', breath: 'out' },
   { sa: 'Ashwa Sanchalanasana', dev: 'अश्वसंचालनासन', en: 'Lunge', breath: 'in' },
   { sa: 'Dandasana', dev: 'दंडासन', en: 'Plank', breath: 'hold' },
@@ -26,7 +26,7 @@ export const POSE_INFO = [
   { sa: 'Parvatasana', dev: 'पर्वतासन', en: 'Mountain pose', breath: 'out' },
   { sa: 'Ashwa Sanchalanasana', dev: 'अश्वसंचालनासन', en: 'Lunge, other leg', breath: 'in' },
   { sa: 'Padahastasana', dev: 'पादहस्तासन', en: 'Forward bend', breath: 'out' },
-  { sa: 'Hasta Uttanasana', dev: 'हस्तउत्तानासन', en: 'Raised arms pose', breath: 'in' },
+  { sa: 'Hasta Uttanasana', dev: 'हस्त उत्तानासन', en: 'Raised arms pose', breath: 'in' },
   { sa: 'Pranamasana', dev: 'प्रणामासन', en: 'Prayer pose', breath: 'out' },
 ];
 
