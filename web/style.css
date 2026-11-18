@@ -96,9 +96,9 @@ input[type=time] { font:inherit; padding:8px 10px; border-radius:10px; border:1p
 #introArt[hidden] + h2 { margin-top:40px; }
 .plan { color:var(--sun); }
 #setLabel { position:absolute; top:10px; left:0; right:0; text-align:center; color:#fff; font-weight:700; text-shadow:0 1px 4px #000; pointer-events:none; }
-#restBox { position:absolute; inset:0; border:0; border-radius:0; background:rgba(0,0,0,.72); color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; }
+#restBox { position:absolute; inset:0; border:0; border-radius:0; background:rgba(0,0,0,.72); color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; }
 #restBox b { font-size:96px; line-height:1; font-weight:800; color:var(--sun2); }
-#restBox small { font-size:18px; font-weight:600; }
+#restBox small { font-size:16px; font-weight:600; }
 #kcalStats { margin-bottom:4px; }
 
 /* ---------- orange sunrise theme ---------- */
@@ -131,3 +131,11 @@ button.summary { width:100%; font:inherit; font-weight:600; min-height:0; }
 .names .t small { color:var(--muted); }
 .names button { min-height:40px; min-width:44px; padding:6px 10px; color:var(--sun); }
 .sheet.settings { z-index:9; }
+
+/* rest between sets: a slow breathing circle */
+#restBox .breathe { position:relative; flex:none; width:116px; height:116px; display:grid; place-items:center; margin:2px 0; }
+#restBox .breathe i { position:absolute; inset:0; border-radius:50%; background:radial-gradient(circle, rgba(255,200,110,.55), rgba(255,140,40,.18) 70%, rgba(255,140,40,0)); transform:scale(.62); will-change:transform; }
+#restBox .breathe b { position:relative; font-size:50px; }
+#restBox strong { font-size:19px; font-weight:700; color:#fff; min-height:24px; }
+#restBox small.skip { opacity:.75; font-size:14px; margin-top:4px; }
+#restBox #restNext { font-size:15px; }

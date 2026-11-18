@@ -3,6 +3,8 @@ import { RepCounter, TRACKED_STEPS } from './counter.js';
 import { STR, SPEECH_LANG, MANTRAS, NAME_MEANINGS } from './i18n.js';
 import { drawShareCard, shareCard } from './share.js';
 import { pickPerson } from './person.js';
+import { ClipPlayer } from './voice.js';
+import { poseLine, missedLine, setDoneLine, setNextLine } from './speech.js';
 
 const sunrisePhoto = new Image(); sunrisePhoto.src = './img/sunrise.jpg';
 const guidePhoto = new Image(); guidePhoto.src = './img/guide.jpg';
@@ -301,29 +303,59 @@ for (const step of TRACKED_STEPS) { const d = document.createElement('span'); d.
 const LINKS = [[11, 13], [13, 15], [12, 14], [14, 16], [11, 12], [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28], [27, 31], [28, 32]];
 
 // The person stands side-on, away from the phone, so the voice is the main way the app talks to them.
+// Every sentence has a recorded clip in the chosen teacher's voice (Vijay or Ritu); anything without
+// a clip, or the "Phone voice" choice, uses the phone's own text-to-speech, slowed down to sound calm.
+// parts: a sentence, or a list of pieces said one after another. A piece may be { lang, text, alt }:
+// lang 'sa' is a Sanskrit mantra, and alt is how the phone voice should say it in English.
 // flush = say it now, dropping anything still queued; otherwise it waits its turn.
-function say(text, flush = true) {
-  if ($('voiceMode').value === 'off' || !text) return;
+const clips = new ClipPlayer();
+clips.load();
+function phoneSay(text, langTag, flush) {
   try {
     const B = window.AndroidBridge;
-    if (B && B.speakQueued) { B.speakQueued(String(text), SPEECH_LANG[lang], flush); return; }
-    if (B && B.speak) { B.speak(String(text), SPEECH_LANG[lang]); return; }
+    if (B && B.speakQueued) { B.speakQueued(String(text), langTag, flush); return; }
+    if (B && B.speak) { B.speak(String(text), langTag); return; }
     if ('speechSynthesis' in window) {
       const u = new SpeechSynthesisUtterance(String(text));
-      u.lang = SPEECH_LANG[lang]; u.rate = 1.05;
+      u.lang = langTag; u.rate = 0.92; u.pitch = 0.95;
       if (flush) speechSynthesis.cancel();
       speechSynthesis.speak(u);
     }
   } catch { /* speech not available */ }
 }
-const fullVoice = () => $('voiceMode').value === 'full';
-function speakName(text) {
+function stopPhoneVoice() {
   try {
     const B = window.AndroidBridge;
-    if (B && B.speakQueued) { B.speakQueued(text, 'hi-IN', true); return; }
-    if ('speechSynthesis' in window) { const u = new SpeechSynthesisUtterance(text); u.lang = 'hi-IN'; u.rate = 0.9; speechSynthesis.cancel(); speechSynthesis.speak(u); }
-  } catch { /* speech not available */ }
+    if (B && B.speakQueued) B.speakQueued('', SPEECH_LANG[lang], true);
+    else if ('speechSynthesis' in window) speechSynthesis.cancel();
+  } catch { /* ignore */ }
 }
+function sayNow(parts, flush = true) {
+  const list = (Array.isArray(parts) ? parts : [parts])
+    .filter((p) => p !== '' && p != null)
+    .map((p) => (typeof p === 'object' ? p : { lang, text: String(p) }));
+  if (!list.length) return;
+  const who = $('voiceWho').value;
+  if (who !== 'phone') {
+    const keys = clips.keys(who, list);
+    if (keys) {
+      if (flush) stopPhoneVoice();
+      clips.play(who, keys, flush);
+      return;
+    }
+  }
+  if (flush) clips.stop();
+  // a mantra on its own with no English spelling (Learn tab) is read by the Hindi voice
+  if (list.every((p) => p.lang === 'sa' && !p.alt)) { phoneSay(list.map((p) => p.text).join('. '), 'hi-IN', flush); return; }
+  const text = list.map((p) => (p.lang === 'sa' && lang === 'en' ? p.alt : p.text)).join('. ');
+  phoneSay(text, SPEECH_LANG[lang], flush);
+}
+function say(parts, flush = true) {
+  if ($('voiceMode').value === 'off') return;
+  sayNow(parts, flush);
+}
+const fullVoice = () => $('voiceMode').value === 'full';
+const speakName = (dev) => sayNow([{ lang: 'sa', text: dev }], true);
 
 // ---------- the 12 names of Surya (Learn tab) ----------
 function renderNames() {
@@ -344,12 +376,15 @@ function renderNames() {
     list.append(li);
   });
 }
-const spokenPose = (step) => { const info = POSE_INFO[step - 1]; return `${lang === 'en' ? info.en : info.dev}. ${t(info.breath)}`; };
-const mantraFor = (n) => (lang === 'en' ? MANTRAS.en : MANTRAS.dev)[((n % 12) + 12) % 12];
+// At a quick pace (under about 30 s a round) each pose lasts under 3 seconds, so only its name is
+// spoken and the breathing is shown on screen; otherwise "Lunge. Breathe in".
+const quickPace = () => sess && sess.rounds > 0 && sess.ms / sess.rounds < 30000;
+const spokenPose = (step) => poseLine(STR, lang, POSE_INFO[step - 1], quickPace());
 // Speaks the round's name and shows it on screen for a few seconds: "Round 3 · ॐ सूर्याय नमः".
 let nameTimer = 0;
 function chantName(n) {
-  say(mantraFor(n), false);
+  const i = ((n % 12) + 12) % 12;
+  say([{ lang: 'sa', text: MANTRAS.dev[i], alt: MANTRAS.en[i] }], false);
   const box = $('nameBox');
   box.textContent = `${t('roundN').replace('{n}', n + 1)} · ${MANTRAS.dev[((n % 12) + 12) % 12]}`;
   box.hidden = false;
@@ -459,7 +494,7 @@ async function start() {
   counter.o.mode = $('strictness').value;
   counter.reset();
   sessionCount = 0;
-  sess = { t: Date.now(), ms: 0, rounds: 0, rej: 0, steps: new Array(12).fill(0), mantra: $('mantra').checked };
+  sess = { t: Date.now(), ms: 0, restMs: 0, rounds: 0, rej: 0, steps: new Array(12).fill(0), mantra: $('mantra').checked };
   Object.assign(voiceState, { stage: '', stageAt: 0, target: 0, importantAt: 0, calibSeq: 0 });
   startedAt = lastSeenAt = lastActiveAt = performance.now();
   lastStep = 0;
@@ -476,7 +511,7 @@ async function start() {
     sets = { ends: sizes.map((n) => (sum += n)), restMs: Number($('setRest').value) * 1000, restUntil: 0, said10: false };
   }
   sessionTarget = sets ? sets.ends[sets.ends.length - 1] : plan ? plan.remaining : Number($('target').value);
-  $('restBox').hidden = true;
+  $('restBox').hidden = true; $('hint').style.visibility = '';
   $('nameBox').hidden = true;
   showSetLabel();
   $('done').hidden = true;
@@ -530,7 +565,7 @@ function stop(spoken = false) {
     saveSession(saved);
   }
   sess = null;
-  if (spoken && sessionCount > 0) say(`${t('vFinished')}. ${sessionCount}`, true);
+  if (spoken && sessionCount > 0) say([t('vFinished'), String(sessionCount)], true);
   renderLastSummary();
   syncReminder();
   $('live').hidden = true;
@@ -544,7 +579,8 @@ let doneSession = null;
 function sessionStats(sn) {
   const out = [];
   if (sn.rounds) {
-    out.push({ label: t('duration'), value: fmtDur(sn.ms) });
+    out.push({ label: t('practiceTime'), value: fmtDur(sn.ms) });
+    if (sn.restMs > 1000) out.push({ label: t('rest'), value: fmtDur(sn.restMs) });
     out.push({ label: t('pace'), value: `${Math.round(sn.ms / 1000 / sn.rounds)} ${t('perRound')}` });
   }
   if (sn.kcal) out.push({ label: t('iKcal'), value: `${Math.round(sn.kcal)} ${t('kcal')}` });
@@ -619,14 +655,21 @@ function restFrame(now, W, H) {
   const left = sets.restUntil - now;
   if (left > 0) {
     $('restTime').textContent = Math.ceil(left / 1000);
+    // breathe in for 4 s while the circle grows, out for 6 s while it shrinks
+    const ph = ((now - sets.restStart) % 10000) / 10000;
+    const grow = ph < 0.4 ? ph / 0.4 : 1 - (ph - 0.4) / 0.6;
+    const ease = grow * grow * (3 - 2 * grow);
+    $('restCircle').style.transform = `scale(${(0.62 + 0.38 * ease).toFixed(3)})`;
+    $('restBreath').textContent = t(ph < 0.4 ? 'in' : 'out');
     if (!sets.said10 && left <= 10500 && sets.restMs > 15000) { sets.said10 = true; say(t('rest10'), true); }
     return;
   }
+  if (sess) sess.restMs += Math.max(0, now - sets.restStart);
   sets.restUntil = 0; sets.said10 = false;
-  $('restBox').hidden = true;
+  $('restBox').hidden = true; $('hint').style.visibility = '';
   counter.recalibrate();                  // "Begin" is spoken once the person is standing still again
   Object.assign(voiceState, { stage: 'stand', stageAt: now, target: 0 });
-  say(t('setNext').replace('{k}', setsDone() + 1), true);
+  say(setNextLine(STR, lang, setsDone() + 1), true);
   showSetLabel();
 }
 $('restBox').addEventListener('click', () => { if (sets && sets.restUntil) sets.restUntil = performance.now(); });
@@ -781,10 +824,10 @@ function loop(now) {
     }
     sessionCount = out.count;
     $('count').textContent = sessionCount;
-    say(sessionCount, true); voiceState.importantAt = now; voiceState.afterImportant = true; voiceState.target = 0;
+    say(String(sessionCount), true); voiceState.importantAt = now; voiceState.afterImportant = true; voiceState.target = 0;
     if (fullVoice() && out.round) {
       const missed = TRACKED_STEPS.find((step) => !out.round.seen[step]);
-      if (missed) say(`${t('vMissed')}: ${lang === 'en' ? POSE_INFO[missed - 1].en : POSE_INFO[missed - 1].dev}`, false);
+      if (missed) say(missedLine(STR, lang, POSE_INFO[missed - 1]), false);
     }
     if (navigator.vibrate) navigator.vibrate(60);
     if (sets && sets.ends.includes(sessionCount)) {
@@ -796,10 +839,12 @@ function loop(now) {
         $('guidePanel').hidden = true;
       }
       else {
-        sets.restUntil = now + sets.restMs;
-        say(t('setDone').replace('{k}', k).replace('{n}', sets.restMs / 1000), false);
+        sets.restUntil = now + sets.restMs; sets.restStart = now;
+        $('restNext').textContent = t('restNext').replace('{k}', k + 1).replace('{n}', sets.ends.length)
+          .replace('{r}', sets.ends[k] - sets.ends[k - 1]);
+        say(setDoneLine(STR, lang, k, sets.restMs / 1000), false);
         $('restTime').textContent = sets.restMs / 1000;
-        $('restBox').hidden = false; $('guidePanel').hidden = true;
+        $('restBox').hidden = false; $('guidePanel').hidden = true; $('hint').style.visibility = 'hidden';
       }
     } else if (sessionTarget && sessionCount === sessionTarget) { noticeUntil = now + 4000; $('hint').textContent = t('done'); say(t('done'), false); }
     else if ($('mantra').checked) chantName(sessionCount);
@@ -835,11 +880,12 @@ for (const [id, def] of [['optNumbers', false], ['mantra', false], ['autoFinish'
   $(id).checked = store.get(id, def);
   $(id).addEventListener('change', () => store.set(id, $(id).checked));
 }
-for (const id of ['facing', 'target', 'strictness', 'weight', 'height', 'theme', 'voiceMode', 'sets', 'setRounds', 'setRest']) {
+for (const id of ['facing', 'target', 'strictness', 'weight', 'height', 'theme', 'voiceMode', 'voiceWho', 'sets', 'setRounds', 'setRest']) {
   $(id).value = store.get(id, $(id).value);
   $(id).addEventListener('change', () => store.set(id, $(id).value));
 }
 $('lens').addEventListener('change', () => store.set('lens', $('lens').value));
+$('voiceWho').addEventListener('change', () => sayNow(t('begin'), true));
 $('sets').addEventListener('change', () => renderPlan());
 $('weight').addEventListener('change', renderProgress);
 $('kAdd').addEventListener('click', () => openSettings('weight'));

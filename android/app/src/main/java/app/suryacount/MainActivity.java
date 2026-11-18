@@ -129,7 +129,11 @@ public class MainActivity extends Activity {
         });
         web.addJavascriptInterface(new Bridge(), "AndroidBridge");
 
-        tts = new TextToSpeech(this, status -> ttsReady = status == TextToSpeech.SUCCESS);
+        tts = new TextToSpeech(this, status -> {
+            ttsReady = status == TextToSpeech.SUCCESS;
+            // a little slower and lower than normal, so the phone voice sounds calm
+            if (ttsReady) { tts.setSpeechRate(0.9f); tts.setPitch(0.95f); }
+        });
 
         if (savedInstanceState == null) web.loadUrl(START_URL);
         else web.restoreState(savedInstanceState);

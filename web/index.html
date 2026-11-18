@@ -51,7 +51,7 @@
         <div id="tuneBox" hidden></div>
         <div id="setLabel" hidden></div>
         <div id="nameBox" hidden></div>
-        <button id="restBox" hidden><small data-t="rest">Rest</small><b id="restTime">60</b><small data-t="skipRest">Tap to skip the rest</small></button>
+        <button id="restBox" hidden><small data-t="rest">Rest</small><span class="breathe"><i id="restCircle"></i><b id="restTime">60</b></span><strong id="restBreath"></strong><small id="restNext"></small><small class="skip" data-t="skipRest">Tap to skip the rest</small></button>
       </div>
       <div class="dots" id="dots"></div>
       <div class="guide-panel" id="guidePanel" hidden>
@@ -136,6 +136,8 @@
       <select id="strictness"><option value="easy" data-t="easy">Easy</option><option value="standard" selected data-t="standard">Standard</option><option value="strict" data-t="strict">Strict</option></select></label>
     <label class="row"><span data-t="voiceMode">Voice</span>
       <select id="voiceMode"><option value="full" selected data-t="vFull">Poses, breathing and count</option><option value="count" data-t="vCount">Count only</option><option value="off" data-t="vOff">Off</option></select></label>
+    <label class="row"><span data-t="voiceWho">Teacher voice</span>
+      <select id="voiceWho"><option value="vijay" selected data-t="vVijay">Vijay (male)</option><option value="ritu" data-t="vRitu">Ritu (female)</option><option value="phone" data-t="vPhone">Phone voice</option></select></label>
     <label class="row"><span data-t="mantra">Surya mantra each round</span><input type="checkbox" id="mantra"></label>
     <label class="row"><span data-t="autoFinish">Finish by itself when I walk away</span><input type="checkbox" id="autoFinish" checked></label>
     <label class="row" id="remindRow" hidden><span data-t="remind">Daily reminder</span><input type="checkbox" id="remind"></label>
