@@ -376,7 +376,10 @@ function renderNames() {
     list.append(li);
   });
 }
-const spokenPose = (step) => poseLine(STR, lang, POSE_INFO[step - 1]);
+// At a quick pace (under about 30 s a round) each pose lasts under 3 seconds, so only its name is
+// spoken and the breathing is shown on screen; otherwise "Lunge. Breathe in".
+const quickPace = () => sess && sess.rounds > 0 && sess.ms / sess.rounds < 30000;
+const spokenPose = (step) => poseLine(STR, lang, POSE_INFO[step - 1], quickPace());
 // Speaks the round's name and shows it on screen for a few seconds: "Round 3 · ॐ सूर्याय नमः".
 let nameTimer = 0;
 function chantName(n) {
