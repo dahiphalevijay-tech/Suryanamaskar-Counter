@@ -9,7 +9,6 @@ for (const lang of ['en', 'mr', 'hi']) {
   const have = new Set(spokenLines(lang, STR, POSE_INFO));
   for (const info of POSE_INFO) {
     assert.ok(have.has(poseLine(STR, lang, info)));
-    assert.ok(have.has(poseLine(STR, lang, info, true)));
     assert.ok(have.has(missedLine(STR, lang, info)));
   }
   for (const k of PLAIN_KEYS) assert.ok(have.has(STR[lang][k] || STR.en[k]), `${lang} ${k}`);

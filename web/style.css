@@ -134,7 +134,7 @@ button.summary { width:100%; font:inherit; font-weight:600; min-height:0; }
 
 /* rest between sets: a slow breathing circle */
 #restBox .breathe { position:relative; flex:none; width:116px; height:116px; display:grid; place-items:center; margin:2px 0; }
-#restBox .breathe i { position:absolute; inset:0; border-radius:50%; background:radial-gradient(circle, rgba(255,200,110,.55), rgba(255,140,40,.18) 70%, rgba(255,140,40,0)); transform:scale(.62); will-change:transform; }
+#restBox .breathe i { position:absolute; inset:0; border-radius:50%; background:rgba(255,255,255,.16); border:3px solid rgba(255,255,255,.85); box-shadow:0 0 24px rgba(255,255,255,.35); transform:scale(.62); will-change:transform; }
 #restBox .breathe b { position:relative; font-size:50px; }
 #restBox strong { font-size:19px; font-weight:700; color:#fff; min-height:24px; }
 #restBox small.skip { opacity:.75; font-size:14px; margin-top:4px; }

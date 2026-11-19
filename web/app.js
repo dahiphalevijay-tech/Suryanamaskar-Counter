@@ -376,10 +376,7 @@ function renderNames() {
     list.append(li);
   });
 }
-// At a quick pace (under about 30 s a round) each pose lasts under 3 seconds, so only its name is
-// spoken and the breathing is shown on screen; otherwise "Lunge. Breathe in".
-const quickPace = () => sess && sess.rounds > 0 && sess.ms / sess.rounds < 30000;
-const spokenPose = (step) => poseLine(STR, lang, POSE_INFO[step - 1], quickPace());
+const spokenPose = (step) => poseLine(STR, lang, POSE_INFO[step - 1]);
 // Speaks the round's name and shows it on screen for a few seconds: "Round 3 · ॐ सूर्याय नमः".
 let nameTimer = 0;
 function chantName(n) {
@@ -553,6 +550,7 @@ async function listLenses() {
 function stop(spoken = false) {
   if (!running) return;
   running = false;
+  awayAt = 0;
   if (stream) { stream.getTracks().forEach((x) => x.stop()); stream = null; }
   if (wakeLock) { try { wakeLock.release(); } catch { /* ignore */ } wakeLock = null; }
   addToday(sessionCount);
@@ -651,6 +649,11 @@ function restFrame(now, W, H) {
   if (mirror) { vctx.translate(W, 0); vctx.scale(-1, 1); }
   vctx.drawImage(cam, 0, 0, W, H);
   vctx.restore();
+  restTick(now);
+}
+// The rest timer and its voice. Runs from the camera loop, and from a plain timer when the app is
+// in the background, so the rest keeps going and the voice still calls the next set.
+function restTick(now) {
   lastSeenAt = lastActiveAt = now;
   const left = sets.restUntil - now;
   if (left > 0) {
@@ -660,12 +663,18 @@ function restFrame(now, W, H) {
     const grow = ph < 0.4 ? ph / 0.4 : 1 - (ph - 0.4) / 0.6;
     const ease = grow * grow * (3 - 2 * grow);
     $('restCircle').style.transform = `scale(${(0.62 + 0.38 * ease).toFixed(3)})`;
-    $('restBreath').textContent = t(ph < 0.4 ? 'in' : 'out');
+    const phase = ph < 0.4 ? 'in' : 'out';
+    $('restBreath').textContent = t(phase);
+    // the voice guides the breathing too, and goes quiet before the ten-second call
+    if (phase !== sets.phase) {
+      sets.phase = phase;
+      if (fullVoice() && left > 13000 && now - sets.restStart > 3500) say(t(phase), true);
+    }
     if (!sets.said10 && left <= 10500 && sets.restMs > 15000) { sets.said10 = true; say(t('rest10'), true); }
     return;
   }
   if (sess) sess.restMs += Math.max(0, now - sets.restStart);
-  sets.restUntil = 0; sets.said10 = false;
+  sets.restUntil = 0; sets.said10 = false; sets.phase = '';
   $('restBox').hidden = true; $('hint').style.visibility = '';
   counter.recalibrate();                  // "Begin" is spoken once the person is standing still again
   Object.assign(voiceState, { stage: 'stand', stageAt: now, target: 0 });
@@ -839,7 +848,7 @@ function loop(now) {
         $('guidePanel').hidden = true;
       }
       else {
-        sets.restUntil = now + sets.restMs; sets.restStart = now;
+        sets.restUntil = now + sets.restMs; sets.restStart = now; sets.phase = '';
         $('restNext').textContent = t('restNext').replace('{k}', k + 1).replace('{n}', sets.ends.length)
           .replace('{r}', sets.ends[k] - sets.ends[k - 1]);
         say(setDoneLine(STR, lang, k, sets.restMs / 1000), false);
@@ -855,8 +864,36 @@ $('start').addEventListener('click', start);
 $('stop').addEventListener('click', () => stop(false));
 $('plus').addEventListener('click', () => setCount(sessionCount + 1));
 $('minus').addEventListener('click', () => setCount(sessionCount - 1));
+// Leaving the app (home button, a call) pauses practice instead of ending it: the camera is let go,
+// a rest keeps counting down with its voice, and coming back carries on. Away for over ten
+// minutes ends the session as usual.
+let awayAt = 0;
+setInterval(() => { if (running && awayAt && sets && sets.restUntil) restTick(performance.now()); }, 500);
+async function comeBack() {
+  const now = performance.now();
+  const away = now - awayAt;
+  awayAt = 0;
+  if (away > 600000) { stop(false); return; }
+  try {
+    stream = await openCamera();
+    cam.srcObject = stream;
+    await cam.play();
+  } catch (e) { console.error(e); stop(false); return; }
+  try { if (navigator.wakeLock) wakeLock = await navigator.wakeLock.request('screen'); } catch { /* optional */ }
+  lastSeenAt = lastActiveAt = performance.now();
+  if (!(sets && sets.restUntil)) {
+    // a round broken by the pause starts again from standing still
+    counter.recalibrate();
+    Object.assign(voiceState, { stage: 'stand', stageAt: lastSeenAt, target: 0 });
+  }
+}
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden && running) stop(false);
+  if (document.hidden && running && !awayAt) {
+    awayAt = performance.now();
+    if (stream) { stream.getTracks().forEach((x) => x.stop()); stream = null; }
+    if (wakeLock) { try { wakeLock.release(); } catch { /* ignore */ } wakeLock = null; }
+  }
+  if (!document.hidden && running && awayAt) comeBack();
   if (!document.hidden) refreshScreens();
 });
 
