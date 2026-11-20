@@ -13,7 +13,7 @@ export const setNextLine = (STR, lang, k) => tr(STR, lang, 'setNext').replace('{
 export const MAX_COUNT_CLIP = 108;
 export const MAX_SETS = 10;
 export const REST_CHOICES = [30, 60, 90, 120];
-export const PLAIN_KEYS = ['in', 'out', 'hold', 'begin', 'vFar', 'vStand', 'vTurn', 'vLost', 'vNotCounted', 'done', 'rest10', 'dark', 'vFinished'];
+export const PLAIN_KEYS = ['in', 'out', 'hold', 'begin', 'vFar', 'vStand', 'vTurn', 'vLost', 'vNotCounted', 'done', 'rest10', 'dark', 'vFinished', 'sitPranayam'];
 
 export function spokenLines(lang, STR, POSE_INFO) {
   const out = [];

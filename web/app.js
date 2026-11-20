@@ -376,9 +376,9 @@ function renderNames() {
     list.append(li);
   });
 }
-// At a quick pace (under about 30 s a round) each pose lasts under 3 seconds, so only its name is
-// spoken and the breathing is shown on screen; otherwise "Lunge. Breathe in".
-const quickPace = () => sess && sess.rounds > 0 && sess.ms / sess.rounds < 30000;
+// First round: "Lunge. Breathe in", to teach the breathing.
+// After the first round only the pose names are spoken (the breathing stays on screen).
+const quickPace = () => sess && sess.rounds > 0;
 const spokenPose = (step) => poseLine(STR, lang, POSE_INFO[step - 1], quickPace());
 // Speaks the round's name and shows it on screen for a few seconds: "Round 3 · ॐ सूर्याय नमः".
 let nameTimer = 0;
@@ -647,6 +647,34 @@ function showSetLabel() {
   if (sets) $('setLabel').textContent = t('setOf').replace('{k}', setsDone() + 1).replace('{n}', sets.ends.length);
 }
 // Rest between sets: the camera stays on, nothing is counted, and the practice does not finish by itself.
+// Pranayama in the rest, after Patanjali: breathe in (puraka) 4 s, hold (kumbhaka) 4 s, breathe out
+// (rechaka) 6 s. "Gentle" leaves out the hold. A new breath only starts if it ends before the
+// ten-second call; until then, and after, the person just sits.
+const BREATH = { guided: [['in', 4000], ['hold', 4000], ['out', 6000]], gentle: [['in', 4000], ['out', 6000]] };
+function breatheFrame(now) {
+  const plan = BREATH[sets.style];
+  if (!plan || now < sets.breathFrom) return;
+  const cycle = plan.reduce((a, p) => a + p[1], 0);
+  const n = Math.floor((now - sets.breathFrom) / cycle);
+  const cycleStart = sets.breathFrom + n * cycle;
+  if (sets.restUntil - cycleStart < cycle + 11000) {
+    // no room for another full breath: settle and wait for the call
+    $('restCircle').style.transform = 'scale(0.62)';
+    if (sets.phase !== 'end') { sets.phase = 'end'; $('restBreath').textContent = t('restSit'); }
+    return;
+  }
+  let at = now - cycleStart, phase = plan[0][0], into = 0, len = plan[0][1];
+  for (const [name, ms] of plan) { if (at < ms) { phase = name; into = at; len = ms; break; } at -= ms; }
+  const x = into / len, ease = x * x * (3 - 2 * x);
+  const size = phase === 'in' ? ease : phase === 'hold' ? 1 : 1 - ease;
+  $('restCircle').style.transform = `scale(${(0.62 + 0.38 * size).toFixed(3)})`;
+  const key = `${n}:${phase}`;
+  if (key !== sets.phase) {
+    sets.phase = key;
+    $('restBreath').textContent = t(phase);
+    say(t(phase), true);
+  }
+}
 function restFrame(now, W, H) {
   vctx.save();
   if (mirror) { vctx.translate(W, 0); vctx.scale(-1, 1); }
@@ -661,18 +689,7 @@ function restTick(now) {
   const left = sets.restUntil - now;
   if (left > 0) {
     $('restTime').textContent = Math.ceil(left / 1000);
-    // breathe in for 4 s while the circle grows, out for 6 s while it shrinks
-    const ph = ((now - sets.restStart) % 10000) / 10000;
-    const grow = ph < 0.4 ? ph / 0.4 : 1 - (ph - 0.4) / 0.6;
-    const ease = grow * grow * (3 - 2 * grow);
-    $('restCircle').style.transform = `scale(${(0.62 + 0.38 * ease).toFixed(3)})`;
-    const phase = ph < 0.4 ? 'in' : 'out';
-    $('restBreath').textContent = t(phase);
-    // the voice guides the breathing too, and goes quiet before the ten-second call
-    if (phase !== sets.phase) {
-      sets.phase = phase;
-      if (fullVoice() && left > 13000 && now - sets.restStart > 3500) say(t(phase), true);
-    }
+    breatheFrame(now);
     if (!sets.said10 && left <= 10500 && sets.restMs > 15000) { sets.said10 = true; say(t('rest10'), true); }
     return;
   }
@@ -855,6 +872,12 @@ function loop(now) {
         $('restNext').textContent = t('restNext').replace('{k}', k + 1).replace('{n}', sets.ends.length)
           .replace('{r}', sets.ends[k] - sets.ends[k - 1]);
         say(setDoneLine(STR, lang, k, sets.restMs / 1000), false);
+        // pranayama: first the "sit down" instruction, then breathing begins once that has been said
+        sets.style = sets.restMs >= 45000 ? $('restStyle').value : 'free';
+        if (sets.style !== 'free') say(t('sitPranayam'), false);
+        sets.breathFrom = now + 10000;
+        $('restCircle').parentElement.style.visibility = sets.style === 'free' ? 'hidden' : '';
+        $('restBreath').textContent = t(sets.style === 'free' ? 'restFree' : 'restSit');
         $('restTime').textContent = sets.restMs / 1000;
         $('restBox').hidden = false; $('guidePanel').hidden = true; $('hint').style.visibility = 'hidden';
       }
@@ -920,7 +943,7 @@ for (const [id, def] of [['optNumbers', false], ['mantra', false], ['autoFinish'
   $(id).checked = store.get(id, def);
   $(id).addEventListener('change', () => store.set(id, $(id).checked));
 }
-for (const id of ['facing', 'target', 'strictness', 'weight', 'height', 'theme', 'voiceMode', 'voiceWho', 'sets', 'setRounds', 'setRest']) {
+for (const id of ['facing', 'target', 'strictness', 'weight', 'height', 'theme', 'voiceMode', 'voiceWho', 'restStyle', 'sets', 'setRounds', 'setRest']) {
   $(id).value = store.get(id, $(id).value);
   $(id).addEventListener('change', () => store.set(id, $(id).value));
 }
