@@ -45,6 +45,23 @@ function addToday(n) {
   days[dayKey()] = Math.max(0, (days[dayKey()] || 0) + n);
   store.set('days', days);
 }
+// While practising, the rounds so far are kept in a draft after every count, so closing the app
+// suddenly (swiped away, battery, crash) does not lose them: the next launch saves the draft.
+function saveDraft() {
+  if (!sess) return;
+  store.set('draft', { day: dayKey(), n: sessionCount, sess: { ...sess } });
+}
+function recoverDraft() {
+  const d = store.get('draft', null);
+  if (!d) return;
+  store.set('draft', null);
+  if (!d.n || !d.sess) return;
+  const days = store.get('days', {});
+  days[d.day] = Math.max(0, (days[d.day] || 0) + d.n);
+  store.set('days', days);
+  const kcal = kcalFor(Number(store.get('weight', 0)) || 0, d.sess.ms, d.sess.rounds);
+  saveSession({ ...d.sess, n: d.n, kcal: Math.round(kcal * 10) / 10 });
+}
 function saveSession(sess) {
   const all = store.get('sessions', []);
   all.push(sess);
@@ -554,6 +571,7 @@ function stop(spoken = false) {
   if (!running) return;
   running = false;
   awayAt = 0;
+  store.set('draft', null);           // saved properly below
   if (stream) { stream.getTracks().forEach((x) => x.stop()); stream = null; }
   if (wakeLock) { try { wakeLock.release(); } catch { /* ignore */ } wakeLock = null; }
   addToday(sessionCount);
@@ -707,6 +725,7 @@ function setCount(n) {
   sessionCount = Math.max(0, n);
   counter.count = sessionCount;
   $('count').textContent = sessionCount;
+  saveDraft();
 }
 
 function loop(now) {
@@ -853,6 +872,7 @@ function loop(now) {
     }
     sessionCount = out.count;
     $('count').textContent = sessionCount;
+    saveDraft();
     say(String(sessionCount), true); voiceState.importantAt = now; voiceState.afterImportant = true; voiceState.target = 0;
     if (fullVoice() && out.round) {
       const missed = TRACKED_STEPS.find((step) => !out.round.seen[step]);
@@ -916,6 +936,7 @@ async function comeBack() {
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && running && !awayAt) {
     awayAt = performance.now();
+    saveDraft();
     if (stream) { stream.getTracks().forEach((x) => x.stop()); stream = null; }
     if (wakeLock) { try { wakeLock.release(); } catch { /* ignore */ } wakeLock = null; }
   }
@@ -1203,6 +1224,7 @@ $('introSkip').addEventListener('click', closeIntro);
 $('introLang').addEventListener('change', () => { lang = $('introLang').value; $('lang').value = lang; store.set('lang', lang); applyLang(); showIntro(introPage); });
 $('howTo').addEventListener('click', openIntro);
 
+recoverDraft();
 applyTheme();
 applyLang();
 syncReminder();
