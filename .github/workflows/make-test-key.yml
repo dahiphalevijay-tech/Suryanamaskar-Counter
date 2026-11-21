@@ -1,0 +1,30 @@
+name: Make test signing key
+
+# Run once. Makes a new signing key for test builds, locked with the TEST_KEY_PASSWORD secret,
+# and saves the locked key file in the repository. Without the password the file is useless.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  key:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Make the key
+        env:
+          PW: ${{ secrets.TEST_KEY_PASSWORD }}
+        run: |
+          if [ -f android/test-key2.jks ]; then echo "Key already exists, nothing to do"; exit 0; fi
+          if [ ${#PW} -lt 20 ]; then echo "TEST_KEY_PASSWORD must be at least 20 characters"; exit 1; fi
+          keytool -genkeypair -keystore android/test-key2.jks -storetype PKCS12 -alias test \
+            -keyalg RSA -keysize 3072 -validity 10000 -storepass "$PW" -keypass "$PW" \
+            -dname "CN=Suryanamaskar Test, C=IN"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add android/test-key2.jks
+          git commit -m "Add new test signing key (locked with a secret password)"
+          git push
