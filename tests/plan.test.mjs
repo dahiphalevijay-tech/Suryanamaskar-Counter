@@ -94,3 +94,13 @@ test('healthy weight range for a height', () => {
   assert.equal(healthyWeight(0), null);
 });
 console.log('all plan tests passed');
+
+// restored files keep only clean session fields
+{
+  const { mergeProgress } = await import('../web/stats.js');
+  const m = mergeProgress({ days: {}, sessions: [] }, { app: 'suryanamaskar', days: { '2026-11-01': 5, '__proto__': 9, 'x': 3 },
+    sessions: [{ t: 1, n: 5, ms: 'abc', steps: [1, 2], evil: '<img>', mantra: 'yes' }, { t: 'bad', n: 1 }] });
+  if (m.sessions.length !== 1 || m.sessions[0].ms !== 0 || 'evil' in m.sessions[0] || 'steps' in m.sessions[0] || m.sessions[0].mantra !== false) throw new Error('restore not cleaned');
+  if (Object.keys(m.days).join() !== '2026-11-01') throw new Error('bad day keys kept');
+  console.log('restore cleaning ok');
+}

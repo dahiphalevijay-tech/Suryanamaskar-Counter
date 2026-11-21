@@ -73,6 +73,11 @@ public class MainActivity extends Activity {
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
         s.setMediaPlaybackRequiresUserGesture(false);
+        // the page needs only its own bundled files: no phone files, no other apps' content, no location
+        s.setAllowFileAccess(false);
+        s.setAllowContentAccess(false);
+        s.setGeolocationEnabled(false);
+        WebView.setWebContentsDebuggingEnabled(false);
 
         final WebViewAssetLoader loader = new WebViewAssetLoader.Builder()
                 .addPathHandler("/", new AssetHandler())
@@ -121,9 +126,9 @@ public class MainActivity extends Activity {
                 return true;
             }
 
+            /** The page's console messages are not written to the phone's log. */
             @Override
             public boolean onConsoleMessage(android.webkit.ConsoleMessage m) {
-                android.util.Log.d("SuryaWeb", m.message() + " @" + m.sourceId() + ":" + m.lineNumber());
                 return true;
             }
         });

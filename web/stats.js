@@ -80,6 +80,17 @@ export function kcalSince(sessions, daysBack, now = new Date()) {
 
 // Combines saved progress from a file with what is on the phone. Nothing is lost from either side:
 // each day keeps its higher count, and sessions are joined without duplicates. Returns null for a foreign file.
+// A session from a restored file keeps only the fields the app writes, each of the right kind, so an
+// edited or damaged file cannot put odd values into the history screens.
+const num = (v, max) => (Number.isFinite(v) && v >= 0 && v <= max ? v : 0);
+export function cleanSession(s) {
+  if (!s || typeof s !== 'object' || !Number.isFinite(s.t) || !Number.isFinite(s.n)) return null;
+  const out = { t: s.t, n: Math.floor(num(s.n, 100000)), ms: num(s.ms, 864e5), restMs: num(s.restMs, 864e5),
+    rounds: Math.floor(num(s.rounds, 100000)), rej: Math.floor(num(s.rej, 100000)), kcal: num(s.kcal, 100000), mantra: s.mantra === true };
+  if (Array.isArray(s.steps) && s.steps.length === 12) out.steps = s.steps.map((v) => Math.floor(num(v, 100000)));
+  return out;
+}
+
 export function mergeProgress(current, incoming) {
   if (!incoming || incoming.app !== 'suryanamaskar' || typeof incoming.days !== 'object' || incoming.days === null) return null;
   const days = { ...current.days };
@@ -88,7 +99,8 @@ export function mergeProgress(current, incoming) {
   }
   const byTime = new Map();
   for (const s of [...(current.sessions || []), ...(Array.isArray(incoming.sessions) ? incoming.sessions : [])]) {
-    if (s && Number.isFinite(s.t) && Number.isFinite(s.n)) byTime.set(s.t, s);
+    const c = cleanSession(s);
+    if (c) byTime.set(c.t, c);
   }
   return { days, sessions: [...byTime.values()].sort((a, b) => a.t - b.t).slice(-3000) };
 }
