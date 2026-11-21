@@ -208,7 +208,14 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         // tell the web app it is on screen again so it can refresh today's numbers
-        if (web != null) web.evaluateJavascript("window.dispatchEvent(new Event('focus'))", null);
+        if (web != null) web.evaluateJavascript("window.dispatchEvent(new Event('focus')); window.appResumed && window.appResumed()", null);
+    }
+
+    @Override
+    protected void onPause() {
+        // practice pauses (camera let go) instead of ending when the app leaves the screen
+        if (web != null) web.evaluateJavascript("window.appPaused && window.appPaused()", null);
+        super.onPause();
     }
 
     @Override

@@ -304,7 +304,7 @@ let wakeLock = null;
 let noticeUntil = 0;
 let sess = null;
 let mirror = true;
-let lastSeenAt = 0;
+let lastSeenAt = 0, lastLoopAt = 0;
 let lastActiveAt = 0;
 let startedAt = 0;
 let lastStep = 0;
@@ -513,7 +513,7 @@ async function start() {
   sessionCount = 0;
   sess = { t: Date.now(), ms: 0, restMs: 0, rounds: 0, rej: 0, steps: new Array(12).fill(0), mantra: $('mantra').checked };
   Object.assign(voiceState, { stage: '', stageAt: 0, target: 0, importantAt: 0, calibSeq: 0 });
-  startedAt = lastSeenAt = lastActiveAt = performance.now();
+  startedAt = lastSeenAt = lastActiveAt = performance.now(); lastLoopAt = 0;
   lastStep = 0;
   followed = null;
   finishAt = 0;
@@ -731,6 +731,14 @@ function setCount(n) {
 function loop(now) {
   if (!running) return;
   requestAnimationFrame(loop);
+  if (awayAt || resuming) return;     // paused while the app is in the background
+  if (lastLoopAt && now - lastLoopAt > 3000 && !(sets && sets.restUntil)) {
+    // no frames for over 3 s without a pause signal: the phone held the app; carry on as after a pause
+    lastSeenAt = lastActiveAt = now; graceUntil = now + 30000;
+    counter.recalibrate();
+    Object.assign(voiceState, { stage: 'stand', stageAt: now, target: 0 });
+  }
+  lastLoopAt = now;
   if (cam.readyState < 2 || now - lastDetect < 66) return;
   lastDetect = now;
   const W = cam.videoWidth, H = cam.videoHeight;
@@ -856,7 +864,7 @@ function loop(now) {
   // ----- hands-free finish -----
   if (out.visible) lastSeenAt = now;
   if (out.step !== lastStep || out.counted) { lastStep = out.step; lastActiveAt = now; }
-  if ($('autoFinish').checked && sessionCount > 0 && (now - lastSeenAt > 10000 || now - lastActiveAt > 45000)) { stop(true); return; }
+  if ($('autoFinish').checked && sessionCount > 0 && now > graceUntil && (now - lastSeenAt > 10000 || now - lastActiveAt > 45000)) { stop(true); return; }
   if (sessionCount === 0 && now - Math.max(lastSeenAt, startedAt) > 300000) { stop(false); return; }
   if ($('optNumbers').checked) {
     const f = out.feat;
@@ -911,36 +919,47 @@ $('stop').addEventListener('click', () => stop(false));
 $('plus').addEventListener('click', () => setCount(sessionCount + 1));
 $('minus').addEventListener('click', () => setCount(sessionCount - 1));
 // Leaving the app (home button, a call) pauses practice instead of ending it: the camera is let go,
-// a rest keeps counting down with its voice, and coming back carries on. Away for over ten
+// a rest keeps counting down with its voice, and coming back carries on. Away for over five
 // minutes ends the session as usual.
-let awayAt = 0;
+let awayAt = 0, resuming = false, graceUntil = 0;
+const AWAY_LIMIT = 300000;   // away up to 5 minutes = paused; longer ends the session
 setInterval(() => { if (running && awayAt && sets && sets.restUntil) restTick(performance.now()); }, 500);
 async function comeBack() {
   const now = performance.now();
   const away = now - awayAt;
   awayAt = 0;
-  if (away > 600000) { stop(false); return; }
+  if (away > AWAY_LIMIT) { stop(false); return; }
+  resuming = true;
+  // time to get back on the mat before "walked away" can finish the practice
+  lastSeenAt = lastActiveAt = now; graceUntil = now + 30000;
   try {
     stream = await openCamera();
     cam.srcObject = stream;
     await cam.play();
-  } catch (e) { console.error(e); stop(false); return; }
+  } catch (e) { console.error(e); resuming = false; stop(false); return; }
   try { if (navigator.wakeLock) wakeLock = await navigator.wakeLock.request('screen'); } catch { /* optional */ }
   lastSeenAt = lastActiveAt = performance.now();
+  resuming = false;
   if (!(sets && sets.restUntil)) {
     // a round broken by the pause starts again from standing still
     counter.recalibrate();
     Object.assign(voiceState, { stage: 'stand', stageAt: lastSeenAt, target: 0 });
   }
 }
+function goAway() {
+  if (!running || awayAt) return;
+  awayAt = performance.now();
+  saveDraft();
+  if (stream) { stream.getTracks().forEach((x) => x.stop()); stream = null; }
+  if (wakeLock) { try { wakeLock.release(); } catch { /* ignore */ } wakeLock = null; }
+}
+function returnHere() { if (running && awayAt) comeBack(); }
+// The Android app calls these when it goes to the background and comes back; the page's own
+// visibility events do not always fire inside the app.
+window.appPaused = goAway;
+window.appResumed = returnHere;
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden && running && !awayAt) {
-    awayAt = performance.now();
-    saveDraft();
-    if (stream) { stream.getTracks().forEach((x) => x.stop()); stream = null; }
-    if (wakeLock) { try { wakeLock.release(); } catch { /* ignore */ } wakeLock = null; }
-  }
-  if (!document.hidden && running && awayAt) comeBack();
+  if (document.hidden) goAway(); else returnHere();
   if (!document.hidden) refreshScreens();
 });
 
