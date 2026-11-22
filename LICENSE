@@ -1,0 +1,12 @@
+Copyright (c) 2026 Vijay Dahiphale. All rights reserved.
+
+This repository, including the app's source code, design, text, translations and the
+recorded voice clips in web/audio, is the property of Vijay Dahiphale.
+
+No permission is given to copy, modify, publish, distribute, sell, or upload this app or
+any part of it (including to any app store) without written permission from the owner.
+
+Viewing the code on GitHub does not grant any licence to use it.
+
+Third-party parts keep their own licences: MediaPipe Tasks Vision and its pose models
+(Apache License 2.0, Google LLC) in web/vendor.
