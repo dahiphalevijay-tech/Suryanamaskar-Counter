@@ -24,6 +24,7 @@
       <svg id="sunrise" class="sunrise" viewBox="0 0 300 200" role="img" aria-label=""></svg>
       <p class="summary" id="lastSummary" hidden></p>
       <button class="summary plan" id="planLine" hidden></button>
+      <div class="summary backup" id="backupCard" hidden><b data-t="backupTitle">Keep a copy of your progress</b><span data-t="backupText"></span><span class="row-btns"><button id="backupNow" data-t="backupNow">Save now</button><button class="link-btn" id="backupLater" data-t="backupLater">Later</button></span></div>
       <button class="link-btn" id="setPlan" data-t="setPlan" hidden>Set a daily plan</button>
       <label class="row" id="targetRow"><span data-t="target">Target</span>
         <select id="target"><option value="0" data-t="noTarget">No target</option><option>12</option><option>24</option><option>54</option><option>108</option></select>
@@ -140,6 +141,8 @@
       <select id="voiceMode"><option value="full" selected data-t="vFull">Poses, breathing and count</option><option value="count" data-t="vCount">Count only</option><option value="off" data-t="vOff">Off</option></select></label>
     <label class="row"><span data-t="voiceWho">Teacher voice</span>
       <select id="voiceWho"><option value="vijay" selected data-t="vVijay">Male</option><option value="ritu" data-t="vRitu">Female</option><option value="phone" data-t="vPhone">Phone voice</option></select></label>
+    <label class="row"><span data-t="formTips">Form tips</span><input type="checkbox" id="formTips" checked></label>
+    <p class="note" data-t="formTipsNote">A gentle tip when the same mistake shows two rounds running.</p>
     <label class="row"><span data-t="restStyle">Rest between sets</span>
       <select id="restStyle"><option value="free" selected data-t="rbFree">Just rest</option><option value="guided" data-t="rbGuided">Pranayama: in · hold · out</option><option value="gentle" data-t="rbGentle">Gentle: in · out</option></select></label>
     <p class="note" data-t="rbNote">Skip the hold if you have high blood pressure, heart trouble, or are pregnant.</p>

@@ -4,6 +4,7 @@ import { STR, SPEECH_LANG, MANTRAS, NAME_MEANINGS } from './i18n.js';
 import { drawShareCard, shareCard } from './share.js';
 import { pickPerson } from './person.js';
 import { ClipPlayer } from './voice.js';
+import { FormCoach } from './form.js';
 import { poseLine, missedLine, setDoneLine, setNextLine } from './speech.js';
 
 const sunrisePhoto = new Image(); sunrisePhoto.src = './img/sunrise.jpg';
@@ -59,7 +60,7 @@ function recoverDraft() {
   const days = store.get('days', {});
   days[d.day] = Math.max(0, (days[d.day] || 0) + d.n);
   store.set('days', days);
-  const kcal = kcalFor(Number(store.get('weight', 0)) || 0, d.sess.ms, d.sess.rounds);
+  const kcal = kcalFor(Number(store.get('weight', 0)) || 0, d.sess.ms + (d.sess.rejMs || 0), d.sess.rounds + (d.sess.rej || 0));
   saveSession({ ...d.sess, n: d.n, kcal: Math.round(kcal * 10) / 10 });
 }
 function saveSession(sess) {
@@ -305,6 +306,8 @@ let noticeUntil = 0;
 let sess = null;
 let mirror = true;
 let lastSeenAt = 0, lastLoopAt = 0;
+const coach = new FormCoach();
+let tipQueued = '';
 let lastActiveAt = 0;
 let startedAt = 0;
 let lastStep = 0;
@@ -399,11 +402,13 @@ const quickPace = () => sess && sess.rounds > 0;
 const spokenPose = (step) => poseLine(STR, lang, POSE_INFO[step - 1], quickPace());
 // Speaks the round's name and shows it on screen for a few seconds: "Round 3 · ॐ सूर्याय नमः".
 let nameTimer = 0;
+// The mantras follow the day's practice: a second session the same day carries on from the next name.
 function chantName(n) {
+  n += sess ? sess.dayStart || 0 : 0;
   const i = ((n % 12) + 12) % 12;
   say([{ lang: 'sa', text: MANTRAS.dev[i], alt: MANTRAS.en[i] }], false);
   const box = $('nameBox');
-  box.textContent = `${t('roundN').replace('{n}', n + 1)} · ${MANTRAS.dev[((n % 12) + 12) % 12]}`;
+  box.textContent = `${t('roundN').replace('{n}', n + 1 - (sess ? sess.dayStart || 0 : 0))} · ${MANTRAS.dev[i]}`;
   box.hidden = false;
   clearTimeout(nameTimer);
   nameTimer = setTimeout(() => { box.hidden = true; }, 4000);
@@ -511,7 +516,9 @@ async function start() {
   counter.o.mode = $('strictness').value;
   counter.reset();
   sessionCount = 0;
-  sess = { t: Date.now(), ms: 0, restMs: 0, rounds: 0, rej: 0, steps: new Array(12).fill(0), mantra: $('mantra').checked };
+  sess = { t: Date.now(), ms: 0, restMs: 0, rejMs: 0, rounds: 0, rej: 0, steps: new Array(12).fill(0), mantra: $('mantra').checked,
+    dayStart: store.get('days', {})[dayKey()] || 0 };
+  coach.reset();
   Object.assign(voiceState, { stage: '', stageAt: 0, target: 0, importantAt: 0, calibSeq: 0 });
   startedAt = lastSeenAt = lastActiveAt = performance.now(); lastLoopAt = 0;
   lastStep = 0;
@@ -579,8 +586,9 @@ function stop(spoken = false) {
   if (modelKind === 'full' && inferN > 200) store.set('slowPhone', 0);
   let saved = null;
   if (sess && (sessionCount > 0 || sess.rej > 0)) {
-    const kcal = kcalFor(Number($('weight').value), sess.ms, sess.rounds);
-    saved = { ...sess, n: sessionCount, kcal: Math.round(kcal * 10) / 10 };
+    // calories follow the effort: rounds that were not counted still burned energy
+    const kcal = kcalFor(Number($('weight').value), sess.ms + sess.rejMs, sess.rounds + sess.rej);
+    saved = { ...sess, n: sessionCount, kcal: Math.round(kcal * 10) / 10, tip: $('formTips').checked ? coach.mostCommon() : null };
     saveSession(saved);
   }
   sess = null;
@@ -628,7 +636,11 @@ function showDone(sn) {
     }
     rows.push({ label: t('iMissed'), value: worst ? `${poseName(worst.step)} (${worst.missed})` : t('iNoMiss') });
   }
-  if (sn.mantra && sn.n > 0) rows.push({ label: t('namesDone'), value: sn.n >= 12 ? t('allNames') : t('namesRange').replace('{a}', 1).replace('{b}', sn.n) });
+  if (sn.mantra && sn.n > 0) {
+    const a = ((sn.dayStart || 0) % 12) + 1, b = (((sn.dayStart || 0) + sn.n - 1) % 12) + 1;
+    rows.push({ label: t('namesDone'), value: sn.n >= 12 ? t('allNames') : t('namesRange').replace('{a}', a).replace('{b}', b) });
+  }
+  if (sn.tip) rows.push({ label: t('tipNext'), value: t(`ft_${sn.tip}`) });
   for (const r of rows) {
     const dt = document.createElement('dt'); dt.textContent = r.label;
     const dd = document.createElement('dd'); dd.textContent = r.value;
@@ -782,6 +794,7 @@ function loop(now) {
     }
   } catch (e) { console.error(e); }
   const out = counter.update(lm || null, now, W / H);
+  if (out.calibrated && lm && sess && $('formTips').checked) coach.frame(lm, out.step, W / H, counter.H);
 
   vctx.save();
   if (mirror) { vctx.translate(W, 0); vctx.scale(-1, 1); }
@@ -821,12 +834,13 @@ function loop(now) {
     $('guidePanel').hidden = true;
     // only setup messages are shown here; while the person is walking to or from the phone the last one stays
     const setup = ['far', 'stand', 'calibrating', 'turn', 'lost'].includes(out.stage);
+    $('view').parentElement.classList.toggle('seen', out.stage === 'calibrating');
     if (setup && (now > noticeUntil || out.stage === 'turn')) $('hint').textContent = t(out.stage);
     else if (!out.calibrated && now > noticeUntil) $('hint').textContent = t('stand');
     if (out.stage === 'turn') [...dots.children].forEach((d) => { d.className = ''; });
   }
   if (out.rejected) {
-    if (sess) sess.rej += 1;
+    if (sess) { sess.rej += 1; sess.rejMs += out.rejectMs || 0; }
     noticeUntil = now + 2500;
     $('hint').textContent = t('notCounted');
     say(t('vNotCounted'), true); voiceState.importantAt = now; voiceState.afterImportant = true;
@@ -881,7 +895,9 @@ function loop(now) {
     sessionCount = out.count;
     $('count').textContent = sessionCount;
     saveDraft();
-    say(String(sessionCount), true); voiceState.importantAt = now; voiceState.afterImportant = true; voiceState.target = 0;
+    say(String(sessionCount), true);
+    const tip = coach.endRound();
+    if (tip && $('formTips').checked) { tipQueued = tip; } voiceState.importantAt = now; voiceState.afterImportant = true; voiceState.target = 0;
     if (fullVoice() && out.round) {
       const missed = TRACKED_STEPS.find((step) => !out.round.seen[step]);
       if (missed) say(missedLine(STR, lang, POSE_INFO[missed - 1]), false);
@@ -911,6 +927,8 @@ function loop(now) {
       }
     } else if (sessionTarget && sessionCount === sessionTarget) { noticeUntil = now + 4000; $('hint').textContent = t('done'); say(t('done'), false); }
     else if ($('mantra').checked) chantName(sessionCount);
+    // a form tip comes after the count and the mantra, at most one a round
+    if (tipQueued) { say(t(`ft_${tipQueued}`), false); tipQueued = ''; }
   }
 }
 
@@ -967,6 +985,7 @@ document.addEventListener('visibilitychange', () => {
 // without the user having to switch tabs or restart the app.
 let shownDay = dayKey();
 function refreshScreens() {
+  renderBackupCard();
   shownDay = dayKey();
   if (running) return;
   renderProgress();
@@ -979,7 +998,7 @@ setInterval(() => { if (dayKey() !== shownDay) refreshScreens(); }, 30000);
 // ---------- settings ----------
 $('lang').value = lang;
 $('lang').addEventListener('change', () => { lang = $('lang').value; store.set('lang', lang); applyLang(); syncReminder(); });
-for (const [id, def] of [['optNumbers', false], ['mantra', false], ['autoFinish', true]]) {
+for (const [id, def] of [['optNumbers', false], ['mantra', false], ['autoFinish', true], ['formTips', true]]) {
   $(id).checked = store.get(id, def);
   $(id).addEventListener('change', () => store.set(id, $(id).checked));
 }
@@ -1049,7 +1068,16 @@ function fileMsg(text) {
   $('fileMsg').textContent = text; $('fileMsg').hidden = false;
   clearTimeout(msgTimer); msgTimer = setTimeout(() => { $('fileMsg').hidden = true; }, 6000);
 }
-window.onFileSaved = (ok) => fileMsg(t(ok ? 'saved' : 'saveFail'));
+window.onFileSaved = (ok) => { fileMsg(t(ok ? 'saved' : 'saveFail')); if (ok) { store.set('lastBackup', Date.now()); renderBackupCard(); } };
+// Once a month (after a few sessions) the home screen suggests saving a copy of the progress,
+// since uninstalling the app or losing the phone would lose it.
+function renderBackupCard() {
+  const n = store.get('sessions', []).length;
+  const due = Date.now() - store.get('lastBackup', 0) > 30 * 864e5 && Date.now() > store.get('backupSnooze', 0);
+  $('backupCard').hidden = !(n >= 5 && due);
+}
+$('backupNow').addEventListener('click', () => $('saveBtn').click());
+$('backupLater').addEventListener('click', () => { store.set('backupSnooze', Date.now() + 14 * 864e5); renderBackupCard(); });
 $('saveBtn').addEventListener('click', () => {
   const data = {
     app: 'suryanamaskar', v: 1, saved: new Date().toISOString(),
@@ -1064,7 +1092,7 @@ $('saveBtn').addEventListener('click', () => {
     a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
     a.download = name; a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-    fileMsg(t('saved'));
+    window.onFileSaved(true);
   } catch (e) { console.error(e); fileMsg(t('saveFail')); }
 });
 $('restoreBtn').addEventListener('click', () => { $('restoreFile').value = ''; $('restoreFile').click(); });
@@ -1244,6 +1272,7 @@ $('introLang').addEventListener('change', () => { lang = $('introLang').value; $
 $('howTo').addEventListener('click', openIntro);
 
 recoverDraft();
+renderBackupCard();
 applyTheme();
 applyLang();
 syncReminder();

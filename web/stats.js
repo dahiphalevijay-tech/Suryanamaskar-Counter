@@ -85,7 +85,7 @@ export function kcalSince(sessions, daysBack, now = new Date()) {
 const num = (v, max) => (Number.isFinite(v) && v >= 0 && v <= max ? v : 0);
 export function cleanSession(s) {
   if (!s || typeof s !== 'object' || !Number.isFinite(s.t) || !Number.isFinite(s.n)) return null;
-  const out = { t: s.t, n: Math.floor(num(s.n, 100000)), ms: num(s.ms, 864e5), restMs: num(s.restMs, 864e5),
+  const out = { t: s.t, n: Math.floor(num(s.n, 100000)), ms: num(s.ms, 864e5), restMs: num(s.restMs, 864e5), rejMs: num(s.rejMs, 864e5),
     rounds: Math.floor(num(s.rounds, 100000)), rej: Math.floor(num(s.rej, 100000)), kcal: num(s.kcal, 100000), mantra: s.mantra === true };
   if (Array.isArray(s.steps) && s.steps.length === 12) out.steps = s.steps.map((v) => Math.floor(num(v, 100000)));
   return out;

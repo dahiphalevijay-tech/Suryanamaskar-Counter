@@ -317,12 +317,12 @@ export class RepCounter {
         this.count += 1; counted = true;
         this.lastRound = { ms: t - this.roundStart, seen: this.seen.slice() };
       }
-      else rejected = true;
+      else { rejected = true; this.lastRejectMs = t - this.roundStart; }
       this._newRound(t);
     } else if (tracked === 'stalled') {
       this._newRound(t);
     } else if (tracked === 'abandoned') {
-      if (FLOOR_STEPS.some((x) => this.seen[x])) rejected = true;
+      if (FLOOR_STEPS.some((x) => this.seen[x])) { rejected = true; this.lastRejectMs = t - this.roundStart; }
       this._newRound(t);
     }
 
@@ -372,6 +372,7 @@ export class RepCounter {
       next: this.step >= 12 ? 1 : TRACKED_STEPS[TRACKED_STEPS.indexOf(this.step) + 1],
       seen: this.seen, facing: this.facing, front: this.front,
       round: counted ? this.lastRound : null, calibSeq: this.calibSeq || 0,
+      rejectMs: rejected ? this.lastRejectMs || 0 : 0,
     };
   }
 }

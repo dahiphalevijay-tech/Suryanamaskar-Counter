@@ -139,3 +139,10 @@ button.summary { width:100%; font:inherit; font-weight:600; min-height:0; }
 #restBox strong { font-size:19px; font-weight:700; color:#fff; min-height:24px; }
 #restBox small.skip { opacity:.75; font-size:14px; margin-top:4px; }
 #restBox #restNext { font-size:15px; }
+
+/* camera: green frame once the whole body is seen side-on */
+.stage-wrap.seen { box-shadow: 0 0 0 4px #2e9e5b inset; border-radius: 12px; }
+/* reminder to keep a copy of progress */
+.summary.backup { display:flex; flex-direction:column; gap:6px; text-align:left; }
+.summary.backup .row-btns { display:flex; gap:12px; align-items:center; }
+.summary.backup #backupNow { padding:8px 14px; border-radius:10px; border:none; background:var(--sun); color:#fff; font-weight:600; }
