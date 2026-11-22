@@ -14,11 +14,15 @@ android {
     // Test builds are all signed with the same key kept in the repository, so a newer test build installs
     // over an older one without uninstalling. This key is public and is NOT the Play Store key.
     signingConfigs {
-        debug {
-            storeFile rootProject.file('test-key.jks')
-            storePassword 'testbuild'
-            keyAlias 'test'
-            keyPassword 'testbuild'
+        // Test builds are signed with a key whose password lives only in the TEST_KEY_PASSWORD
+        // GitHub secret. Without it (a local build) the standard debug key is used instead.
+        if (System.getenv('TEST_KEY_PASSWORD')) {
+            debug {
+                storeFile rootProject.file('test-key2.jks')
+                storePassword System.getenv('TEST_KEY_PASSWORD')
+                keyAlias 'test'
+                keyPassword System.getenv('TEST_KEY_PASSWORD')
+            }
         }
     }
     buildTypes {
