@@ -69,14 +69,77 @@ def to_opus(mp3, path):
                         "-b:a", "24k", "-application", "voip", path], check=True)
 
 
+def duration(path):
+    out = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", path],
+                         capture_output=True, text=True).stdout
+    try:
+        return float(out)
+    except ValueError:
+        return 0.0
+
+
+NORMS = {}  # (voice, lang) -> {"rate": seconds per character, "num": typical seconds for a number}
+
+
+def chars(text):
+    return sum(4 if c.isdigit() else 1 for c in text)
+
+
+def learn_norms(lines):
+    """Typical length of this voice's clips, from the clips already made."""
+    import statistics
+    for voice in VOICES:
+        for lang in {ln["lang"] for ln in lines}:
+            rates, nums = [], []
+            for ln in lines:
+                if ln["lang"] != lang:
+                    continue
+                path = f"{OUT}/{voice}/{clip_key(ln['lang'], ln['text'])}.ogg"
+                if os.path.exists(path):
+                    d = duration(path)
+                    (nums.append(d) if ln["text"].isdigit() else rates.append(d / chars(ln["say"])))
+            NORMS[(voice, lang)] = {"rate": statistics.median(rates) if len(rates) > 5 else 0.11,
+                                    "num": statistics.median(nums) if len(nums) > 5 else 0.9}
+
+
+def too_long(voice, ln, secs):
+    """The voice model now and then adds murmuring or a long tail. A clip far longer than this
+    voice usually needs for that much text is treated as faulty and made again."""
+    n = NORMS.get((voice, ln["lang"]), {"rate": 0.11, "num": 0.9})
+    if ln["text"].isdigit():
+        return secs > 1.6 * n["num"] + 0.15
+    return secs > 1.5 * n["rate"] * chars(ln["say"]) + 0.2
+
+
+def make_clip(voice, ln, path):
+    """Up to 3 tries; keeps the shortest if every try looks too long."""
+    best = None
+    for _ in range(3):
+        to_opus(speak(ln["say"], ln["synthLang"], VOICES[voice], ln["pace"]), path + ".try.ogg")
+        secs = duration(path + ".try.ogg")
+        if best is None or secs < best:
+            best = secs
+            os.replace(path + ".try.ogg", path)
+        if not too_long(voice, ln, secs):
+            break
+        time.sleep(0.5)
+    if os.path.exists(path + ".try.ogg"):
+        os.remove(path + ".try.ogg")
+    return best
+
+
 def main():
     lines = json.load(open(sys.argv[1] if len(sys.argv) > 1 else "voice-lines.json", encoding="utf-8"))
+    learn_norms(lines)
     todo = []
     for voice in VOICES:
         os.makedirs(f"{OUT}/{voice}", exist_ok=True)
         for ln in lines:
             path = f"{OUT}/{voice}/{clip_key(ln['lang'], ln['text'])}.ogg"
             if not os.path.exists(path):
+                todo.append((voice, ln, path))
+            elif too_long(voice, ln, duration(path)):
+                print(f"  remaking faulty clip: {voice} {ln['lang']} {ln['text']} ({duration(path):.1f} s)")
                 todo.append((voice, ln, path))
     chars = sum(len(ln["say"]) for _, ln, _ in todo)
     print(f"{len(todo)} clips to make, {chars} characters")
@@ -86,7 +149,9 @@ def main():
     failed = []
     for i, (voice, ln, path) in enumerate(todo, 1):
         try:
-            to_opus(speak(ln["say"], ln["synthLang"], VOICES[voice], ln["pace"]), path)
+            secs = make_clip(voice, ln, path)
+            if too_long(voice, ln, secs):
+                failed.append(f"{voice} {ln['lang']} {ln['text']}: still long after 3 tries ({secs:.1f} s)")
         except Exception as e:  # keep going; a later run retries anything missing
             failed.append(f"{voice} {ln['lang']} {ln['text']}: {e}")
             if len(failed) >= 15:
