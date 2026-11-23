@@ -1016,6 +1016,7 @@ for (const id of ['facing', 'target', 'strictness', 'weight', 'height', 'theme',
 }
 $('lens').addEventListener('change', () => store.set('lens', $('lens').value));
 $('voiceWho').addEventListener('change', () => sayNow(t('begin'), true));
+if (!$('voiceWho').value) { $('voiceWho').value = 'ritu'; store.set('voiceWho', 'ritu'); }  // the male voice was removed
 $('sets').addEventListener('change', () => renderPlan());
 $('weight').addEventListener('change', renderProgress);
 $('kAdd').addEventListener('click', () => openSettings('weight'));

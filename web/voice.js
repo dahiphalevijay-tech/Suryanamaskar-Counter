@@ -3,7 +3,7 @@
 // A clip is found by a short hash of its language and text; anything without a clip
 // falls back to the phone's own voice.
 
-export const VOICE_IDS = { vijay: 'vijay_ta_narration', ritu: 'ritu_hi_sales' };
+export const VOICE_IDS = { ritu: 'ritu_hi_sales' };
 
 // FNV-1a over the UTF-8 bytes of "lang|text", as 8 hex digits (same in tools/make_voices.py).
 export function clipKey(lang, text) {

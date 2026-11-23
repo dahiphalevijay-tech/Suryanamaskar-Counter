@@ -16,7 +16,7 @@ import urllib.error
 import urllib.request
 
 KEY = os.environ["SARVAM_API_KEY"]
-VOICES = {"vijay": "vijay_ta_narration", "ritu": "ritu_hi_sales"}
+VOICES = {"ritu": "ritu_hi_sales"}
 OUT = "web/audio"
 MAX_CHARS = 40000  # safety limit per run (about ₹80 at ₹20 per 10,000 characters)
 
