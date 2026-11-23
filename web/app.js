@@ -744,11 +744,16 @@ function loop(now) {
   if (!running) return;
   requestAnimationFrame(loop);
   if (awayAt || resuming) return;     // paused while the app is in the background
-  if (lastLoopAt && now - lastLoopAt > 3000 && !(sets && sets.restUntil)) {
-    // no frames for over 3 s without a pause signal: the phone held the app; carry on as after a pause
-    lastSeenAt = lastActiveAt = now; graceUntil = now + 30000;
-    counter.recalibrate();
-    Object.assign(voiceState, { stage: 'stand', stageAt: now, target: 0 });
+  const gap = lastLoopAt ? now - lastLoopAt : 0;
+  if (gap > 3000 && !(sets && sets.restUntil)) {
+    // frames stopped for a while (the phone held the app, or a slow first frame): that time does
+    // not count as "away"; a long stop without a pause signal is treated like a pause
+    lastSeenAt += gap; lastActiveAt += gap;
+    if (gap > 10000) {
+      graceUntil = now + 30000;
+      counter.recalibrate();
+      Object.assign(voiceState, { stage: 'stand', stageAt: now, target: 0 });
+    }
   }
   lastLoopAt = now;
   if (cam.readyState < 2 || now - lastDetect < 66) return;
@@ -879,6 +884,9 @@ function loop(now) {
   if (out.visible) lastSeenAt = now;
   if (out.step !== lastStep || out.counted) { lastStep = out.step; lastActiveAt = now; }
   if ($('autoFinish').checked && sessionCount > 0 && now > graceUntil && (now - lastSeenAt > 10000 || now - lastActiveAt > 45000)) { stop(true); return; }
+  // started but never practised (phone left on, person walked off): close after a minute with
+  // nobody in view, or three minutes with no pose, so the camera does not run on
+  if ($('autoFinish').checked && sessionCount === 0 && now > graceUntil && (now - lastSeenAt > 60000 || now - lastActiveAt > 180000)) { stop(false); return; }
   if (sessionCount === 0 && now - Math.max(lastSeenAt, startedAt) > 300000) { stop(false); return; }
   if ($('optNumbers').checked) {
     const f = out.feat;
