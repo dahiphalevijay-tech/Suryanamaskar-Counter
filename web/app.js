@@ -576,6 +576,7 @@ async function listLenses() {
 
 function stop(spoken = false) {
   if (!running) return;
+  const endedByPlan = finishAt > 0;
   running = false;
   awayAt = 0;
   store.set('draft', null);           // saved properly below
@@ -592,7 +593,12 @@ function stop(spoken = false) {
     saveSession(saved);
   }
   sess = null;
-  if (spoken && sessionCount > 0) say([t('vFinished'), String(sessionCount)], true);
+  // the last count has just been heard when the plan finishes the practice: only "Practice complete"
+  // follows, after it; when the person walks away, the total is said with it
+  if (spoken && sessionCount > 0) {
+    if (endedByPlan) say(t('vFinished'), false);
+    else say([t('vFinished'), String(sessionCount)], true);
+  }
   renderLastSummary();
   syncReminder();
   $('live').hidden = true;
@@ -761,7 +767,7 @@ function loop(now) {
   const W = cam.videoWidth, H = cam.videoHeight;
   if (!W || !H) return;
   if (view.width !== W) { view.width = W; view.height = H; }
-  if (finishAt && now > finishAt) { stop(true); return; }
+  if (finishAt && now > finishAt && !clips.busy) { stop(true); return; }
   if (sets && sets.restUntil) { restFrame(now, W, H); return; }
   let lm = null;
   try {
