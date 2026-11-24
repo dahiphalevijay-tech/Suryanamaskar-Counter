@@ -13,17 +13,18 @@ KEY = os.environ["SARVAM_API_KEY"]
 OUT = "voice-test"
 os.makedirs(OUT, exist_ok=True)
 
-VOICES = {"vijay": "vijay_ta_narration"}
+VOICES = {"ritu": "ritu_hi_sales"}
 
 # (file name, language, text, pace)
 LINES = [
-    ("1_english_075", "en-IN", "Raise your arms. Breathe in slowly.", 0.75),
-    ("2_english_085", "en-IN", "Raise your arms. Breathe in slowly.", 0.85),
-    ("3_marathi_075", "mr-IN", "हात वर करा. हळू श्वास घ्या.", 0.75),
-    ("4_marathi_085", "mr-IN", "हात वर करा. हळू श्वास घ्या.", 0.85),
-    ("5_hindi_075", "hi-IN", "हाथ ऊपर उठाइए. धीरे से साँस लीजिए.", 0.75),
-    ("6_om_075", "hi-IN", "ओम् मित्राय नमः", 0.75),
-    ("7_om_085", "hi-IN", "ओम् मित्राय नमः", 0.85),
+    ("p0_now", "en-IN", "Plank. Hold your breath", 0.95),
+    ("p1", "en-IN", "Plank, hold your breath.", 0.95),
+    ("p2", "en-IN", "Hold your breath in plank.", 0.95),
+    ("p3", "en-IN", "Plank, hold the breath.", 1.0),
+    ("l0_now", "en-IN", "Lunge, other leg. Breathe in", 0.95),
+    ("l1", "en-IN", "Other leg lunge, breathe in.", 0.95),
+    ("l2", "en-IN", "Lunge with the other leg, breathe in.", 0.95),
+    ("l3", "en-IN", "Lunge on the other side, breathe in.", 1.0),
 ]
 
 
