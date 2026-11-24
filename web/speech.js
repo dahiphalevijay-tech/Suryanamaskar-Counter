@@ -7,7 +7,7 @@ const poseName = (lang, info) => (lang === 'en' ? info.en : info.dev);
 // In English a full stop after a one-word name made the voice stretch it ("Plaaank"), so the
 // English line is one sentence with a comma; step 9 is said as "Lunge on the other side" (also
 // in the short name from round 2), without the comma pause of "Lunge, other leg".
-const EN_SAY = { 'Lunge, other leg': 'Lunge on the other side' };
+const EN_SAY = { 'Lunge, other leg': 'Lunge on the other side', Cobra: 'Cobra pose' };  // "Cobra" alone came out as "Cobras"
 export const poseLine = (STR, lang, info, short = false) => {
   if (short) return lang === 'en' ? EN_SAY[info.en] || info.en : poseName(lang, info);
   if (lang !== 'en') return `${poseName(lang, info)}. ${tr(STR, lang, info.breath)}`;
