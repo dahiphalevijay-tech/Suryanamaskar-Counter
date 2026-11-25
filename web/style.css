@@ -155,3 +155,12 @@ h2.with-info { display:flex; align-items:center; gap:6px; }
 .info-btn { background:none; border:0; color:var(--sun); font-size:1.1rem; min-width:36px; min-height:36px; padding:0; }
 #addPersonRow input { flex:1; min-width:0; width:auto; }
 #addPersonRow button { margin-left:8px; }
+
+#settings details.group { border-bottom:1px solid var(--line); }
+#settings details.group > summary { list-style:none; display:flex; justify-content:space-between; align-items:center; min-height:56px; cursor:pointer;
+  color:var(--sun); font-size:15px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; }
+#settings details.group > summary::-webkit-details-marker { display:none; }
+#settings details.group > summary::after { content:''; width:10px; height:10px; border-right:2.5px solid currentColor; border-bottom:2.5px solid currentColor; transform:rotate(45deg); margin-right:6px; transition:transform .2s; }
+#settings details.group[open] > summary::after { transform:rotate(-135deg); margin-top:6px; }
+#settings details.group[open] { padding-bottom:12px; }
+#settings details.group .row:last-of-type { border-bottom:0; }

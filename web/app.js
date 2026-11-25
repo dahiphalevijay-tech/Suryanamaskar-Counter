@@ -1169,6 +1169,8 @@ function openSettings(focusId) {
   $('settings').hidden = false;
   $('settings').scrollTop = 0;
   setBackWanted(true);
+  // the sections start folded; a shortcut to one setting opens its section
+  document.querySelectorAll('#settings details.group').forEach((d) => { d.open = !!focusId && d.contains($(focusId)); });
   if (focusId) setTimeout(() => { $(focusId).scrollIntoView({ block: 'center' }); if (focusId === 'weight') $(focusId).focus(); }, 50);
 }
 function closeSettings() {

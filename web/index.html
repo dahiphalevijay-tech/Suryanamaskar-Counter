@@ -129,7 +129,7 @@
 <div id="settings" class="sheet settings" hidden>
   <div class="sheet-bar"><button id="settingsBack" class="icon-btn" aria-label="Back"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><h2 data-t="settings">Settings</h2></div>
   <div class="sheet-body">
-    <h2 data-t="gProfile"></h2>
+    <details class="group" id="grp-gProfile"><summary><span data-t="gProfile"></span></summary>
     <label class="row"><span data-t="whoPractises">Who is practising</span><select id="person"></select></label>
     <label class="row"><span data-t="personNameLabel">Name</span><input type="text" id="renamePerson" maxlength="20" autocomplete="off"></label>
     <div class="row" id="addPersonRow"><input type="text" id="newPerson" maxlength="20" autocomplete="off"><button id="addPerson" data-t="addPerson">Add person</button></div>
@@ -139,7 +139,8 @@
     <label class="row"><span data-t="height">Height (cm)</span><input type="number" id="height" inputmode="numeric" min="90" max="230" step="1" placeholder="—"></label>
     <p class="note" id="bmi"></p>
     <p class="note" id="healthy"></p>
-    <h2 data-t="gPractice"></h2>
+    </details>
+    <details class="group" id="grp-gPractice"><summary><span data-t="gPractice"></span></summary>
     <label class="row" id="planRow"><span data-t="planGoal">Daily plan</span>
       <select id="planGoal"><option value="0" data-t="planOff">Off</option><option value="12"></option><option value="24"></option><option value="54"></option><option value="108"></option></select></label>
     <p class="note plan" id="planSuggest" hidden></p>
@@ -162,18 +163,21 @@
     <label class="row" id="remindRow" hidden><span data-t="remind">Daily reminder</span><input type="checkbox" id="remind"></label>
     <label class="row" id="remindTimeRow" hidden><span data-t="remindTime">Reminder time</span><input type="time" id="remindTime" value="06:00"></label>
     <p class="note" id="remindNote" hidden></p>
-    <h2 data-t="gCamera"></h2>
+    </details>
+    <details class="group" id="grp-gCamera"><summary><span data-t="gCamera"></span></summary>
     <label class="row"><span data-t="camera">Camera</span>
       <select id="facing"><option value="user" data-t="front">Front</option><option value="environment" data-t="back">Back</option></select></label>
     <label class="row"><span data-t="lens">Camera lens</span>
       <select id="lens"><option value="" data-t="lensAuto">Automatic</option></select></label>
     <label class="row"><span data-t="showNumbers">Show tuning numbers</span><input type="checkbox" id="optNumbers"></label>
-    <h2 data-t="gApp"></h2>
+    </details>
+    <details class="group" id="grp-gApp"><summary><span data-t="gApp"></span></summary>
     <label class="row"><span data-t="language">Language</span>
       <select id="lang"><option value="en">English</option><option value="mr">मराठी</option><option value="hi">हिन्दी</option></select></label>
     <label class="row"><span data-t="theme">Appearance</span>
       <select id="theme"><option value="system" data-t="themeSystem">Follow phone</option><option value="light" data-t="themeLight">Light</option><option value="dark" data-t="themeDark">Dark</option></select></label>
-    <h2 data-t="gData"></h2>
+    </details>
+    <details class="group" id="grp-gData"><summary><span data-t="gData"></span></summary>
     <button id="saveBtn" class="wide-btn" data-t="saveBtn">Save progress to a file</button>
     <button id="restoreBtn" class="wide-btn" data-t="restoreBtn">Restore progress from a file</button>
     <input type="file" id="restoreFile" accept="application/json,.json" hidden>
@@ -181,11 +185,13 @@
     <button id="clearBtn" class="wide-btn danger" data-t="clearBtn">Clear all progress</button>
     <p class="note" data-t="clearNote"></p>
     <p class="summary" id="fileMsg" hidden></p>
-    <h2 data-t="gHelp"></h2>
+    </details>
+    <details class="group" id="grp-gHelp"><summary><span data-t="gHelp"></span></summary>
     <button id="howTo" class="wide-btn" data-t="howTo">How to use</button>
     <button id="healthBtn" class="wide-btn" data-t="healthBtn">Health and safety</button>
     <button id="feedbackBtn" class="wide-btn" data-t="feedback" hidden>Send feedback</button>
     <p class="private" data-t="privacy">Nothing is recorded. The camera picture never leaves your phone.</p>
+    </details>
   </div>
 </div>
 <div id="health" class="sheet" hidden>
