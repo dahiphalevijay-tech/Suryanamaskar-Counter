@@ -17,14 +17,16 @@ VOICES = {"ritu": "ritu_hi_sales"}
 
 # (file name, language, text, pace)
 LINES = [
-    ("p0_now", "en-IN", "Plank. Hold your breath", 0.95),
-    ("p1", "en-IN", "Plank, hold your breath.", 0.95),
-    ("p2", "en-IN", "Hold your breath in plank.", 0.95),
-    ("p3", "en-IN", "Plank, hold the breath.", 1.0),
-    ("l0_now", "en-IN", "Lunge, other leg. Breathe in", 0.95),
-    ("l1", "en-IN", "Other leg lunge, breathe in.", 0.95),
-    ("l2", "en-IN", "Lunge with the other leg, breathe in.", 0.95),
-    ("l3", "en-IN", "Lunge on the other side, breathe in.", 1.0),
+    ("c0_now_short", "en-IN", "Cobra pose", 0.95),
+    ("c0_now_full", "en-IN", "Cobra pose, breathe in.", 0.95),
+    ("c1_short", "en-IN", "Cobra pose", 1.0),
+    ("c1_full", "en-IN", "Cobra pose, breathe in.", 1.0),
+    ("c2_short", "en-IN", "Cobra.", 1.0),
+    ("c2_full", "en-IN", "Cobra, breathe in.", 1.0),
+    ("c3_short", "en-IN", "Cobra stretch", 1.0),
+    ("c3_full", "en-IN", "Cobra stretch, breathe in.", 1.0),
+    ("c4_short", "en-IN", "Bhujangasana", 1.0),
+    ("c4_full", "en-IN", "Bhujangasana, breathe in.", 1.0),
 ]
 
 
