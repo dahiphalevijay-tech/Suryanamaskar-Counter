@@ -9,8 +9,7 @@ const poseName = (lang, info) => (lang === 'en' ? info.en : info.dev);
 // in the short name from round 2), without the comma pause of "Lunge, other leg".
 const EN_SAY = { 'Lunge, other leg': 'Lunge on the other side', Cobra: 'Cobra pose' };  // "Cobra" alone came out as "Cobras"
 export const poseLine = (STR, lang, info, short = false) => {
-  // "Cobra pose" on its own sounded odd, so in English cobra keeps its breathing in every round
-  if (short && !(lang === 'en' && info.en === 'Cobra')) return lang === 'en' ? EN_SAY[info.en] || info.en : poseName(lang, info);
+  if (short) return lang === 'en' ? EN_SAY[info.en] || info.en : poseName(lang, info);
   if (lang !== 'en') return `${poseName(lang, info)}. ${tr(STR, lang, info.breath)}`;
   const b = tr(STR, lang, info.breath);
   return `${EN_SAY[info.en] || info.en}, ${b.charAt(0).toLowerCase()}${b.slice(1)}.`;
