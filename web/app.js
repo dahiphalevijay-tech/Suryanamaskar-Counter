@@ -16,9 +16,24 @@ import { startPlan, evaluatePlan, todayPlan, splitSets, suggestPlan } from './pl
 const FEEDBACK_EMAIL = '';
 
 const $ = (id) => document.getElementById(id);
-const store = {
+// Family members on one phone: each person has their own progress, weight, plan and practice choices.
+// The first person keeps the plain keys (so nothing moves for existing users); others get "p<id>." in front.
+const PER_PERSON = new Set(['days', 'sessions', 'plan', 'draft', 'weight', 'height', 'lastBackup', 'backupSnooze',
+  'milestones', 'target', 'sets', 'setRounds', 'setRest']);
+const raw = {
   get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* storage unavailable */ } },
+  del(k) { try { localStorage.removeItem(k); } catch { /* storage unavailable */ } },
+};
+let people = raw.get('people', null);
+if (!Array.isArray(people) || !people.length) people = [{ id: 0, name: '' }];
+let who = Number(raw.get('person', 0));
+if (!people.some((p) => p.id === who)) who = people[0].id;
+const keyFor = (k) => (who && PER_PERSON.has(k) ? `p${who}.${k}` : k);
+const store = {
+  get: (k, d) => raw.get(keyFor(k), d),
+  set: (k, v) => raw.set(keyFor(k), v),
+  del: (k) => raw.del(keyFor(k)),
 };
 
 // ---------- language ----------
@@ -34,6 +49,7 @@ function applyLang() {
   showPose(Math.round(animPos) % 12);
   markSuggested();
   document.querySelectorAll('#setRest option').forEach((o) => { o.textContent = `${o.value} ${t('secShort')}`; });
+  renderPeople();
   renderProgress();
   renderProfile();
 }
@@ -78,6 +94,8 @@ function renderProgress() {
   const sessions = store.get('sessions', []);
   const today = days[dayKey()] || 0;
   drawHomeSun(days, today);
+  $('shareDay').hidden = !today;
+  renderPersonChip();
   $('sToday').textContent = today;
   $('sTotal').textContent = Object.values(days).reduce((a, b) => a + b, 0);
   $('sStreak').textContent = currentStreak();
@@ -403,8 +421,11 @@ const spokenPose = (step) => poseLine(STR, lang, POSE_INFO[step - 1], quickPace(
 // Speaks the round's name and shows it on screen for a few seconds: "Round 3 · ॐ सूर्याय नमः".
 let nameTimer = 0;
 // The mantras follow the day's practice: a second session the same day carries on from the next name.
+// "First 12" (the default) chants the twelve names once a day; "every round" goes round them again.
+const mantraFirst12 = () => $('mantraWhen').value !== 'every';
 function chantName(n) {
   n += sess ? sess.dayStart || 0 : 0;
+  if (mantraFirst12() && n >= 12) return;
   const i = ((n % 12) + 12) % 12;
   say([{ lang: 'sa', text: MANTRAS.dev[i], alt: MANTRAS.en[i] }], false);
   const box = $('nameBox');
@@ -516,7 +537,7 @@ async function start() {
   counter.o.mode = $('strictness').value;
   counter.reset();
   sessionCount = 0;
-  sess = { t: Date.now(), ms: 0, restMs: 0, rejMs: 0, rounds: 0, rej: 0, steps: new Array(12).fill(0), mantra: $('mantra').checked,
+  sess = { t: Date.now(), ms: 0, restMs: 0, rejMs: 0, rounds: 0, rej: 0, steps: new Array(12).fill(0), mantra: $('mantra').checked, mantraAll: !mantraFirst12(),
     dayStart: store.get('days', {})[dayKey()] || 0 };
   coach.reset();
   Object.assign(voiceState, { stage: '', stageAt: 0, target: 0, importantAt: 0, calibSeq: 0 });
@@ -591,6 +612,8 @@ function stop(spoken = false) {
     const kcal = kcalFor(Number($('weight').value), sess.ms + sess.rejMs, sess.rounds + sess.rej);
     saved = { ...sess, n: sessionCount, kcal: Math.round(kcal * 10) / 10, tip: $('formTips').checked ? coach.mostCommon() : null };
     saveSession(saved);
+    const ms = newMilestones();
+    if (ms.length) saved.milestone = ms[ms.length - 1];   // the biggest one reached today is celebrated
   }
   sess = null;
   // the last count has just been heard when the plan finishes the practice: only "Practice complete"
@@ -642,9 +665,11 @@ function showDone(sn) {
     }
     rows.push({ label: t('iMissed'), value: worst ? `${poseName(worst.step)} (${worst.missed})` : t('iNoMiss') });
   }
-  if (sn.mantra && sn.n > 0) {
-    const a = ((sn.dayStart || 0) % 12) + 1, b = (((sn.dayStart || 0) + sn.n - 1) % 12) + 1;
-    rows.push({ label: t('namesDone'), value: sn.n >= 12 ? t('allNames') : t('namesRange').replace('{a}', a).replace('{b}', b) });
+  const start = sn.dayStart || 0;
+  const chanted = sn.mantraAll ? sn.n : Math.max(0, Math.min(sn.n, 12 - start));
+  if (sn.mantra && chanted > 0) {
+    const a = (start % 12) + 1, b = ((start + chanted - 1) % 12) + 1;
+    rows.push({ label: t('namesDone'), value: chanted >= 12 ? t('allNames') : t('namesRange').replace('{a}', a).replace('{b}', b) });
   }
   if (sn.tip) rows.push({ label: t('tipNext'), value: t(`ft_${sn.tip}`) });
   for (const r of rows) {
@@ -652,6 +677,8 @@ function showDone(sn) {
     const dd = document.createElement('dd'); dd.textContent = r.value;
     box.append(dt, dd);
   }
+  $('doneMilestone').hidden = !sn.milestone;
+  if (sn.milestone) $('doneMilestone').textContent = `🎉 ${milestoneText(sn.milestone)}`;
   $('idle').hidden = true;
   $('done').hidden = false;
 }
@@ -667,9 +694,54 @@ function buildShareCard(sn) {
   drawShareCard(card, {
     app: t('appName'), count: sn.n, label: t('iTotal'),
     date: new Date(sn.t).toLocaleDateString(SPEECH_LANG[lang], { day: 'numeric', month: 'long', year: 'numeric' }),
-    stats, streakText: streak > 1 ? t('streakDays').replace('{n}', streak) : '',
+    stats, streakText: sn.milestone ? milestoneText(sn.milestone) : streak > 1 ? t('streakDays').replace('{n}', streak) : '',
   }, sunrisePhoto);
   return card;
+}
+// The whole day's practice on one card, from the home screen: all of today's sessions added up.
+function buildDayCard() {
+  const today = store.get('days', {})[dayKey()] || 0;
+  const mine = store.get('sessions', []).filter((x) => dayKey(new Date(x.t)) === dayKey());
+  const ms = mine.reduce((a, x) => a + (x.ms || 0), 0);
+  const kcal = mine.reduce((a, x) => a + (x.kcal || 0), 0);
+  const stats = [];
+  if (ms) stats.push({ label: t('duration'), value: fmtDur(ms) });
+  if (kcal) stats.push({ label: t('iKcal'), value: `${Math.round(kcal)} kcal` });
+  const reached = store.get('milestones', []).filter((m) => m.startsWith('day'));
+  const streak = currentStreak();
+  drawShareCard($('shareCard'), {
+    app: t('appName'), count: today, label: t('iTotal'),
+    date: new Date().toLocaleDateString(SPEECH_LANG[lang], { day: 'numeric', month: 'long', year: 'numeric' }),
+    stats, streakText: today >= 108 && reached.length ? milestoneText('day108') : streak > 1 ? t('streakDays').replace('{n}', streak) : '',
+  }, sunrisePhoto);
+  return { card: $('shareCard'), today };
+}
+$('shareDay').addEventListener('click', () => {
+  const { card, today } = buildDayCard();
+  if (today) shareCard(card, t('shareText').replace('{n}', today));
+});
+
+// ---------- milestones ----------
+// Reached once per person and celebrated on the done screen and the share card. When the list is
+// first made (an update, or a restored file), what was already reached is noted without a celebration.
+const MILESTONES = [
+  ['total108', (m) => m.total >= 108], ['streak7', (m) => m.streak >= 7], ['streak21', (m) => m.streak >= 21],
+  ['day108', (m) => m.today >= 108], ['total1008', (m) => m.total >= 1008], ['streak108', (m) => m.streak >= 108],
+  ['total10008', (m) => m.total >= 10008],
+];
+const MILESTONE_IDS = new Set(MILESTONES.map(([id]) => id));
+function milestoneText(id) {
+  const n = Number(id.replace(/\D/g, ''));
+  if (id.startsWith('day')) return t('msDay').replace('{n}', n);
+  return t(id.startsWith('streak') ? 'msStreak' : 'msTotal').replace('{n}', n.toLocaleString('en-IN'));
+}
+function newMilestones() {
+  const days = store.get('days', {});
+  const m = { today: days[dayKey()] || 0, total: Object.values(days).reduce((a, b) => a + b, 0), streak: currentStreak() };
+  const had = store.get('milestones', null);
+  const now = MILESTONES.filter(([, ok]) => ok(m)).map(([id]) => id);
+  store.set('milestones', [...new Set([...(had || []), ...now])]);
+  return had ? now.filter((id) => !had.includes(id)) : [];
 }
 $('shareBtn').addEventListener('click', () => {
   if (!doneSession) return;
@@ -1012,20 +1084,82 @@ setInterval(() => { if (dayKey() !== shownDay) refreshScreens(); }, 30000);
 // ---------- settings ----------
 $('lang').value = lang;
 $('lang').addEventListener('change', () => { lang = $('lang').value; store.set('lang', lang); applyLang(); syncReminder(); });
-for (const [id, def] of [['optNumbers', false], ['mantra', false], ['autoFinish', true], ['formTips', true]]) {
+const CHECKS = [['optNumbers', false], ['mantra', false], ['autoFinish', true], ['formTips', true]];
+const SELECTS = ['facing', 'target', 'strictness', 'weight', 'height', 'theme', 'voiceMode', 'voiceWho', 'restStyle', 'mantraWhen', 'sets', 'setRounds', 'setRest'];
+for (const [id, def] of CHECKS) {
   $(id).checked = store.get(id, def);
   $(id).addEventListener('change', () => store.set(id, $(id).checked));
 }
-for (const id of ['facing', 'target', 'strictness', 'weight', 'height', 'theme', 'voiceMode', 'voiceWho', 'restStyle', 'sets', 'setRounds', 'setRest']) {
+for (const id of SELECTS) {
   $(id).value = store.get(id, $(id).value);
   $(id).addEventListener('change', () => store.set(id, $(id).value));
 }
 $('lens').addEventListener('change', () => store.set('lens', $('lens').value));
+const showMantraWhen = () => { $('mantraWhenRow').hidden = !$('mantra').checked; };
+$('mantra').addEventListener('change', showMantraWhen); showMantraWhen();
 $('voiceWho').addEventListener('change', () => sayNow(t('begin'), true));
 if (!$('voiceWho').value) { $('voiceWho').value = 'ritu'; store.set('voiceWho', 'ritu'); }  // the male voice was removed
 $('sets').addEventListener('change', () => renderPlan());
 $('weight').addEventListener('change', renderProgress);
 $('kAdd').addEventListener('click', () => openSettings('weight'));
+
+$('kInfo').addEventListener('click', () => { $('kNote').hidden = !$('kNote').hidden; });
+
+// ---------- family members ----------
+const MAX_PEOPLE = 4;
+function personName(id) { const p = people.find((x) => x.id === id); return (p && p.name) || t('me'); }
+function renderPeople() {
+  const sel = $('person');
+  sel.textContent = '';
+  for (const p of people) sel.append(new Option(personName(p.id), String(p.id)));
+  sel.value = String(who);
+  $('addPersonRow').hidden = people.length >= MAX_PEOPLE;
+  $('removePerson').hidden = people.length < 2;
+  $('newPerson').placeholder = t('personName');
+  $('renamePerson').value = people.find((x) => x.id === who).name || '';
+  $('renamePerson').placeholder = t('me');
+}
+function renderPersonChip() {
+  $('personChip').hidden = people.length < 2;
+  $('personChip').textContent = `👤 ${personName(who)}`;
+}
+// Switching person reloads the app, so every screen and setting is read again for that person.
+function switchPerson(id, askWeight = false) {
+  if (running) return;
+  raw.set('person', id);
+  if (askWeight) raw.set('askWeight', true);
+  location.reload();
+}
+$('person').addEventListener('change', () => switchPerson(Number($('person').value)));
+$('personChip').addEventListener('click', () => openSettings('person'));
+$('addPerson').addEventListener('click', () => {
+  const name = $('newPerson').value.trim().slice(0, 20);
+  if (!name || people.length >= MAX_PEOPLE) { $('newPerson').focus(); return; }
+  const id = Math.max(...people.map((p) => p.id)) + 1;
+  people.push({ id, name });
+  raw.set('people', people);
+  switchPerson(id, true);
+});
+$('renamePerson').addEventListener('change', () => {
+  people.find((x) => x.id === who).name = $('renamePerson').value.trim().slice(0, 20);
+  raw.set('people', people);
+  renderPeople(); renderPersonChip();
+});
+// Removing a person (tap twice) deletes only their own progress and choices.
+let removeArmed = 0;
+$('removePerson').addEventListener('click', () => {
+  if (people.length < 2) return;
+  if (!removeArmed || Date.now() - removeArmed > 5000) {
+    removeArmed = Date.now();
+    $('removePerson').textContent = t('removeConfirm').replace('{name}', personName(who));
+    setTimeout(() => { if (Date.now() - removeArmed >= 5000) { removeArmed = 0; $('removePerson').textContent = t('removePerson'); } }, 5100);
+    return;
+  }
+  for (const k of PER_PERSON) store.del(k);
+  people = people.filter((p) => p.id !== who);
+  raw.set('people', people);
+  switchPerson(people[0].id);
+});
 
 // ---------- settings page (gear icon) ----------
 // The phone's back button closes it instead of leaving the app.
@@ -1060,7 +1194,7 @@ $('clearBtn').addEventListener('click', () => {
     setTimeout(() => { if (clearArmed && Date.now() - clearArmed >= 5000) disarmClear(); }, 5100);
     return;
   }
-  for (const k of ['days', 'sessions', 'plan']) localStorage.removeItem(k);
+  for (const k of ['days', 'sessions', 'plan', 'milestones']) store.del(k);
   $('planGoal').value = '0';
   disarmClear();
   renderProgress(); renderLastSummary(); syncReminder();
@@ -1093,13 +1227,39 @@ function renderBackupCard() {
 }
 $('backupNow').addEventListener('click', () => $('saveBtn').click());
 $('backupLater').addEventListener('click', () => { store.set('backupSnooze', Date.now() + 14 * 864e5); renderBackupCard(); });
+// Every choice in Settings and on the practice screen goes into the progress file, so a new phone
+// is set up the same way after restoring.
+const OTHER_SETTINGS = ['remindTime'];   // the camera lens is left out: it belongs to one phone
+function allSettings() {
+  const out = { lang, remind: $('remind').checked };
+  for (const [id] of CHECKS) out[id] = $(id).checked;
+  for (const id of [...SELECTS, ...OTHER_SETTINGS]) out[id] = $(id).value;
+  return out;
+}
+// Only values the app itself offers are taken from a file; anything else is ignored.
+function applySettings(set) {
+  if (STR[set.lang] && set.lang !== lang) { $('lang').value = set.lang; $('lang').dispatchEvent(new Event('change')); }
+  for (const [id] of CHECKS) {
+    if (typeof set[id] === 'boolean' && $(id).checked !== set[id]) { $(id).checked = set[id]; $(id).dispatchEvent(new Event('change')); }
+  }
+  for (const id of [...SELECTS, ...OTHER_SETTINGS]) {
+    const el = $(id), v = set[id];
+    if (typeof v !== 'string' || el.value === v || id === 'weight' || id === 'height') continue;
+    const ok = el.tagName === 'SELECT' ? [...el.options].some((o) => o.value === v) : (id === 'remindTime' && /^\d{2}:\d{2}$/.test(v));
+    if (ok) { el.value = v; store.set(id, v); el.dispatchEvent(new Event('change')); }
+  }
+  if (typeof set.remind === 'boolean' && !$('remindRow').hidden && $('remind').checked !== set.remind) {
+    $('remind').checked = set.remind; $('remind').dispatchEvent(new Event('change'));
+  }
+}
 $('saveBtn').addEventListener('click', () => {
   const data = {
-    app: 'suryanamaskar', v: 1, saved: new Date().toISOString(),
+    app: 'suryanamaskar', v: 2, saved: new Date().toISOString(), person: personName(who),
     days: store.get('days', {}), sessions: store.get('sessions', []), plan: store.get('plan', null),
-    settings: { weight: $('weight').value, height: $('height').value, lang },
+    milestones: store.get('milestones', []), settings: allSettings(),
   };
-  const name = `suryanamaskar-progress-${dayKey()}.json`;
+  const tag = who ? `-${personName(who).replace(/[^\p{L}\p{N}]+/gu, '').slice(0, 20)}` : '';
+  const name = `suryanamaskar-progress${tag}-${dayKey()}.json`;
   const text = JSON.stringify(data);
   try {
     if (window.AndroidBridge && window.AndroidBridge.saveFile) { window.AndroidBridge.saveFile(name, text); return; }
@@ -1125,12 +1285,15 @@ $('restoreFile').addEventListener('change', async () => {
     const v = Number(set[id]);
     if (!$(id).value && v >= lo && v <= hi) { $(id).value = v; store.set(id, String(v)); }
   }
+  applySettings(set);
+  if (Array.isArray(data.milestones)) store.set('milestones', [...new Set([...store.get('milestones', []), ...data.milestones.filter((m) => MILESTONE_IDS.has(m))])]);
   const p = data.plan;
   if (!store.get('plan', null) && p && [12, 24, 54, 108].includes(p.goal) && Number.isFinite(p.target) && p.target >= 3 && p.target <= p.goal
     && /^\d{4}-\d{2}-\d{2}$/.test(p.since) && /^\d{4}-\d{2}-\d{2}$/.test(p.lastEval)) {
     store.set('plan', { goal: p.goal, target: Math.floor(p.target), since: p.since, lastEval: p.lastEval });
     $('planGoal').value = String(p.goal);
   }
+  newMilestones();
   renderProgress(); renderProfile(); renderLastSummary(); syncReminder();
   fileMsg(t('restored').replace('{n}', Object.values(merged.days).filter((n) => n > 0).length));
 });
@@ -1287,11 +1450,13 @@ $('introLang').addEventListener('change', () => { lang = $('introLang').value; $
 $('howTo').addEventListener('click', openIntro);
 
 recoverDraft();
+newMilestones();
 renderBackupCard();
 applyTheme();
 applyLang();
 syncReminder();
-if (!store.get('introSeen', false)) openIntro();
+if (raw.get('askWeight', false)) { raw.set('askWeight', false); openSettings('weight'); }
+else if (!store.get('introSeen', false)) openIntro();
 else if (!store.get('healthSeen', false)) openHealth();
 renderLastSummary();
 requestAnimationFrame(animLoop);

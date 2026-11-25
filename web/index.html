@@ -21,7 +21,9 @@
 <main>
   <section id="tab-practice" class="tab active">
     <div id="idle">
+      <button class="person-chip" id="personChip" hidden></button>
       <svg id="sunrise" class="sunrise" viewBox="0 0 300 200" role="img" aria-label=""></svg>
+      <button class="share-day" id="shareDay" hidden><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 3v12M7 8l5-5 5 5M5 14v5h14v-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span data-t="shareDay">Share today</span></button>
       <p class="summary" id="lastSummary" hidden></p>
       <button class="summary plan" id="planLine" hidden></button>
       <div class="summary backup" id="backupCard" hidden><b data-t="backupTitle">Keep a copy of your progress</b><span data-t="backupText"></span><span class="row-btns"><button id="backupNow" data-t="backupNow">Save now</button><button class="link-btn" id="backupLater" data-t="backupLater">Later</button></span></div>
@@ -69,6 +71,7 @@
     </div>
     <div id="done" hidden>
       <p class="done-title" data-t="wellDone">Well done</p>
+      <p class="milestone" id="doneMilestone" hidden></p>
       <svg id="doneSun" class="sunrise" viewBox="0 0 300 200" role="img" aria-label=""></svg>
       <dl class="insights" id="doneStats"></dl>
       <div class="controls">
@@ -101,7 +104,8 @@
       <div><b id="sStreak">0</b><span data-t="streak">day streak</span></div>
       <div><b id="sTotal">0</b><span data-t="total">total</span></div>
     </div>
-    <h2 data-t="iKcal">Calories (approx.)</h2>
+    <h2 class="with-info"><span data-t="iKcal">Calories (approx.)</span><button class="info-btn" id="kInfo" data-t-label="kInfo" aria-label="About calories">ⓘ</button></h2>
+    <p class="note" id="kNote" data-t="kNote" hidden></p>
     <div class="stats" id="kcalStats">
       <div><b id="kToday">0</b><span data-t="today">today</span></div>
       <div><b id="kWeek">0</b><span data-t="d7">7 days</span></div>
@@ -126,6 +130,11 @@
   <div class="sheet-bar"><button id="settingsBack" class="icon-btn" aria-label="Back"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button><h2 data-t="settings">Settings</h2></div>
   <div class="sheet-body">
     <h2 data-t="gProfile"></h2>
+    <label class="row"><span data-t="whoPractises">Who is practising</span><select id="person"></select></label>
+    <label class="row"><span data-t="personNameLabel">Name</span><input type="text" id="renamePerson" maxlength="20" autocomplete="off"></label>
+    <div class="row" id="addPersonRow"><input type="text" id="newPerson" maxlength="20" autocomplete="off"><button id="addPerson" data-t="addPerson">Add person</button></div>
+    <p class="note" data-t="peopleNote">Each person has their own progress, weight and plan.</p>
+    <button class="link-btn" id="removePerson" data-t="removePerson" hidden>Remove this person</button>
     <label class="row"><span data-t="weight">Weight (kg)</span><input type="number" id="weight" inputmode="decimal" min="20" max="250" step="0.5" placeholder="—"></label>
     <label class="row"><span data-t="height">Height (cm)</span><input type="number" id="height" inputmode="numeric" min="90" max="230" step="1" placeholder="—"></label>
     <p class="note" id="bmi"></p>
@@ -147,6 +156,8 @@
       <select id="restStyle"><option value="free" selected data-t="rbFree">Just rest</option><option value="guided" data-t="rbGuided">Pranayama: in · hold · out</option><option value="gentle" data-t="rbGentle">Gentle: in · out</option></select></label>
     <p class="note" data-t="rbNote">Skip the hold if you have high blood pressure, heart trouble, or are pregnant.</p>
     <label class="row"><span data-t="mantra">Surya mantra each round</span><input type="checkbox" id="mantra"></label>
+    <label class="row" id="mantraWhenRow"><span data-t="mantraWhen">Mantras for</span>
+      <select id="mantraWhen"><option value="first12" selected data-t="mFirst12">First 12 rounds of the day</option><option value="every" data-t="mEvery">Every round</option></select></label>
     <label class="row"><span data-t="autoFinish">Finish by itself when I walk away</span><input type="checkbox" id="autoFinish" checked></label>
     <label class="row" id="remindRow" hidden><span data-t="remind">Daily reminder</span><input type="checkbox" id="remind"></label>
     <label class="row" id="remindTimeRow" hidden><span data-t="remindTime">Reminder time</span><input type="time" id="remindTime" value="06:00"></label>
