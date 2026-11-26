@@ -152,16 +152,26 @@ function planToday(days = store.get('days', {})) {
   if (next !== plan) { plan = next; store.set('plan', plan); }
   return todayPlan(plan, days, dayKey());
 }
-function renderPlan(days) {
+// The target is for the whole day, as the sun on the home screen shows: what is left after today's rounds so far.
+function targetLeft(days = store.get('days', {})) {
+  const goal = Number($('target').value);
+  return goal ? Math.max(0, goal - (days[dayKey()] || 0)) : 0;
+}
+function renderPlan(days = store.get('days', {})) {
   const p = planToday(days);
   $('planLine').hidden = !p;
   $('setPlan').hidden = !!p;
   $('planLine').classList.toggle('done', !!(p && !p.remaining));
-  $('targetRow').hidden = !!p || Number($('sets').value) > 0;
+  $('targetRow').hidden = !!p;
   const nSets = Number($('sets').value);
   $('setRows').hidden = !nSets;
-  // while today's plan still has rounds left, the plan decides how many rounds go in each set
-  $('setRoundsRow').hidden = !!(p && p.remaining);
+  // while today's plan or target still has rounds left, it decides how many rounds go in each set
+  const left = targetLeft(days);
+  $('setRoundsRow').hidden = !!(p && p.remaining) || (!p && left > 0);
+  $('setSplit').hidden = !!p || !nSets || !Number($('target').value);
+  if (!p && nSets && Number($('target').value)) {
+    $('setSplit').textContent = left ? `${t('planLeft').replace('{n}', left)} · ${t('sets')}: ${splitSets(left, nSets).join(' + ')}` : `${t('targetDone')} ✓`;
+  }
   if (!p) return;
   const head = t(p.rest ? 'planRest' : 'planToday').replace('{n}', p.target);
   const parts = p.remaining ? [head, t('planLeft').replace('{n}', p.remaining)] : [`${t('planDone')} ✓`];
@@ -551,11 +561,12 @@ async function start() {
   sets = null;
   if (nSets) {
     // sizes of the sets: shared out from what is left of today's plan, otherwise the chosen rounds per set
-    const sizes = plan && plan.remaining ? splitSets(plan.remaining, nSets) : new Array(nSets).fill(Number($('setRounds').value));
+    const left = plan ? plan.remaining : targetLeft();
+    const sizes = left ? splitSets(left, nSets) : new Array(nSets).fill(Number($('setRounds').value));
     let sum = 0;
     sets = { ends: sizes.map((n) => (sum += n)), restMs: Number($('setRest').value) * 1000, restUntil: 0, said10: false };
   }
-  sessionTarget = sets ? sets.ends[sets.ends.length - 1] : plan ? plan.remaining : Number($('target').value);
+  sessionTarget = sets ? sets.ends[sets.ends.length - 1] : plan ? plan.remaining : targetLeft();
   $('restBox').hidden = true; $('hint').style.visibility = '';
   $('nameBox').hidden = true;
   showSetLabel();
@@ -1100,6 +1111,7 @@ $('mantra').addEventListener('change', showMantraWhen); showMantraWhen();
 $('voiceWho').addEventListener('change', () => sayNow(t('begin'), true));
 if (!$('voiceWho').value) { $('voiceWho').value = 'ritu'; store.set('voiceWho', 'ritu'); }  // the male voice was removed
 $('sets').addEventListener('change', () => renderPlan());
+$('target').addEventListener('change', renderProgress);
 $('weight').addEventListener('change', renderProgress);
 $('kAdd').addEventListener('click', () => openSettings('weight'));
 
