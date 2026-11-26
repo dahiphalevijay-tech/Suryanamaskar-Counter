@@ -164,3 +164,4 @@ h2.with-info { display:flex; align-items:center; gap:6px; }
 #settings details.group[open] > summary::after { transform:rotate(-135deg); margin-top:6px; }
 #settings details.group[open] { padding-bottom:12px; }
 #settings details.group .row:last-of-type { border-bottom:0; }
+.insights .missed { color:var(--danger); }

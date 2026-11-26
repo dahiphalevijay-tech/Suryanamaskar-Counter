@@ -266,3 +266,17 @@ test('a person facing the camera is asked to turn and nothing is counted', () =>
   }
 });
 console.log('all counter tests passed');
+
+test('says why a round was not counted: which poses were not seen', () => {
+  const c = new RepCounter();
+  const rejects = [];
+  const orig = c.update.bind(c);
+  c.update = (...a) => { const o = orig(...a); if (o.rejected) rejects.push(o.reject); return o; };
+  // round 2 skips the floor poses 5 to 8 (plank, ashtanga, cobra, mountain)
+  const skip = POSES.filter((_, i) => i < 4 || i > 7).map((p) => [p, 600, 400]);
+  run(c, [...stand, ...round(600, 400), ...skip, ...round(600, 400)]);
+  console.log('    ', JSON.stringify(rejects));
+  assert.ok(rejects.length >= 1);
+  assert.ok(rejects[0].why === 'missed' || rejects[0].why === 'broken');
+  if (rejects[0].why === 'missed') assert.ok([6, 7, 8].every((x) => rejects[0].missing.includes(x)));
+});

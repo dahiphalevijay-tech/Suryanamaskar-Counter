@@ -444,6 +444,21 @@ function chantName(n) {
   clearTimeout(nameTimer);
   nameTimer = setTimeout(() => { box.hidden = true; }, 4000);
 }
+// "Not seen: Cobra and Mountain", "Too quick", "Round stopped part-way" — the reason a round was not counted.
+function rejectText(r) {
+  if (!r) return t('notCounted');
+  if (r.why === 'quick') return t('whyQuick');
+  // numbered, since some poses come twice in a round: "Cobra (7)"
+  const nameOf = (x) => { const info = POSE_INFO[x - 1]; return `${lang === 'en' ? info.en.replace(', other leg', '') : info.dev} (${x})`; };
+  const names = r.missing.map(nameOf);
+  if (r.why === 'broken' || !names.length) {
+    // the round broke off: name the last pose that was followed
+    const seen = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].filter((x) => !r.missing.includes(x));
+    return seen.length ? t('whyLost').replace('{pose}', nameOf(Math.max(...seen))) : t('whyBroken');
+  }
+  const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} ${t('and')} ${names[names.length - 1]}` : names[0];
+  return t('whyMissed').replace('{list}', list);
+}
 const STAGE_VOICE = { far: 'vFar', stand: 'vStand', turn: 'vTurn', lost: 'vLost' };
 const voiceState = { stage: '', stageAt: 0, target: 0, importantAt: 0, calibSeq: 0 };
 
@@ -682,10 +697,12 @@ function showDone(sn) {
     const a = (start % 12) + 1, b = ((start + chanted - 1) % 12) + 1;
     rows.push({ label: t('namesDone'), value: chanted >= 12 ? t('allNames') : t('namesRange').replace('{a}', a).replace('{b}', b) });
   }
+  for (const m of (sn.missedRounds || []).slice(0, 6)) rows.push({ label: t('roundN').replace('{n}', m.round), value: m.why, cls: 'missed' });
   if (sn.tip) rows.push({ label: t('tipNext'), value: t(`ft_${sn.tip}`) });
   for (const r of rows) {
     const dt = document.createElement('dt'); dt.textContent = r.label;
     const dd = document.createElement('dd'); dd.textContent = r.value;
+    if (r.cls) { dt.className = r.cls; dd.className = r.cls; }
     box.append(dt, dd);
   }
   $('doneMilestone').hidden = !sn.milestone;
@@ -935,8 +952,10 @@ function loop(now) {
   }
   if (out.rejected) {
     if (sess) { sess.rej += 1; sess.rejMs += out.rejectMs || 0; }
-    noticeUntil = now + 2500;
-    $('hint').textContent = t('notCounted');
+    const why = rejectText(out.reject);
+    if (sess) (sess.missedRounds ||= []).push({ round: sess.rounds + sess.rej, why });
+    noticeUntil = now + 4000;
+    $('hint').textContent = `${t('notCountedShort')}: ${why}`;
     say(t('vNotCounted'), true); voiceState.importantAt = now; voiceState.afterImportant = true;
     if (navigator.vibrate) navigator.vibrate([40, 60, 40]);
   }

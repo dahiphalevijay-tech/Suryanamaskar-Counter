@@ -317,12 +317,12 @@ export class RepCounter {
         this.count += 1; counted = true;
         this.lastRound = { ms: t - this.roundStart, seen: this.seen.slice() };
       }
-      else { rejected = true; this.lastRejectMs = t - this.roundStart; }
+      else { rejected = true; this.lastRejectMs = t - this.roundStart; this._why(seenCount >= need ? 'quick' : 'missed'); }
       this._newRound(t);
     } else if (tracked === 'stalled') {
       this._newRound(t);
     } else if (tracked === 'abandoned') {
-      if (FLOOR_STEPS.some((x) => this.seen[x])) { rejected = true; this.lastRejectMs = t - this.roundStart; }
+      if (FLOOR_STEPS.some((x) => this.seen[x])) { rejected = true; this.lastRejectMs = t - this.roundStart; this._why('broken'); }
       this._newRound(t);
     }
 
@@ -365,6 +365,12 @@ export class RepCounter {
     return this.state === 'up' ? 'down' : 'rise';
   }
 
+  // Why the last round was not counted: 'missed' (poses not seen), 'quick' (faster than the minimum time)
+  // or 'broken' (the round stopped part-way), with the poses that were not seen.
+  _why(why) {
+    this.lastReject = { why, missing: TRACKED_STEPS.filter((x) => !this.seen[x]) };
+  }
+
   _out(stage, visible, counted = false, rejected = false) {
     return {
       count: this.count, stage, visible, counted, rejected, calibrated: this.calibrated,
@@ -373,6 +379,7 @@ export class RepCounter {
       seen: this.seen, facing: this.facing, front: this.front,
       round: counted ? this.lastRound : null, calibSeq: this.calibSeq || 0,
       rejectMs: rejected ? this.lastRejectMs || 0 : 0,
+      reject: rejected ? this.lastReject || null : null,
     };
   }
 }
