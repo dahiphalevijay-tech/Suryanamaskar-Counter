@@ -138,7 +138,8 @@ button.summary { width:100%; font:inherit; font-weight:600; min-height:0; }
 #restBox .breathe i { position:absolute; inset:0; border-radius:50%; background:rgba(255,255,255,.16); border:3px solid rgba(255,255,255,.85); box-shadow:0 0 24px rgba(255,255,255,.35); transform:scale(.62); will-change:transform; }
 #restBox .breathe b { position:relative; font-size:50px; }
 #restBox strong { font-size:19px; font-weight:700; color:#fff; min-height:24px; }
-#restBox small.skip { opacity:.75; font-size:14px; margin-top:4px; }
+#restBox small.skip { display:inline-flex; align-items:center; gap:8px; margin-top:14px; padding:12px 26px; border-radius:28px; background:rgba(255,255,255,.95); color:#5a2408; font-size:17px; font-weight:800; box-shadow:0 4px 14px rgba(0,0,0,.3); }
+#restBox small.skip::after { content:'⏭'; font-size:16px; }
 #restBox #restNext { font-size:15px; }
 
 /* camera: green frame once the whole body is seen side-on */
