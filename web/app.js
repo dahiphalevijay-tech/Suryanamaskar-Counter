@@ -344,6 +344,10 @@ let followedAt = 0;
 let sessionTarget = 0;      // rounds aimed for in this practice (0 = none)
 let sets = null;            // { n, per, restMs, restUntil, said10 } when practising in sets
 let finishAt = 0;
+let nearSince = 0;
+const NEAR_LIMIT = 180000;
+// at least three body points seen clearly: a person is in front of the camera, even if not in full view
+const partlySeen = (lm) => !!lm && lm.filter((p) => p.visibility > 0.6).length >= 3;
 const guide = $('guide');
 const gctx = guide.getContext('2d');
 const dots = $('dots');
@@ -566,7 +570,7 @@ async function start() {
     dayStart: store.get('days', {})[dayKey()] || 0 };
   coach.reset();
   Object.assign(voiceState, { stage: '', stageAt: 0, target: 0, importantAt: 0, calibSeq: 0 });
-  startedAt = lastSeenAt = lastActiveAt = performance.now(); lastLoopAt = 0;
+  startedAt = lastSeenAt = lastActiveAt = performance.now(); lastLoopAt = 0; nearSince = 0;
   lastStep = 0;
   followed = null;
   finishAt = 0;
@@ -991,6 +995,12 @@ function loop(now) {
   // ----- hands-free finish -----
   if (out.visible) lastSeenAt = now;
   if (out.step !== lastStep || out.counted) { lastStep = out.step; lastActiveAt = now; }
+  // Someone close to the phone (only a leg or a hand in view, e.g. turning the volume up) is still
+  // here: the session does not end while any part of a body is seen, for up to 3 minutes at a time.
+  if (!out.visible && partlySeen(lm)) {
+    if (!nearSince) nearSince = now;
+    if (now - nearSince < NEAR_LIMIT) { lastSeenAt = Math.max(lastSeenAt, now); lastActiveAt = Math.max(lastActiveAt, now); }
+  } else nearSince = 0;
   if ($('autoFinish').checked && sessionCount > 0 && now > graceUntil && (now - lastSeenAt > 10000 || now - lastActiveAt > 45000)) { stop(true); return; }
   // started but never practised (phone left on, person walked off): close after a minute with
   // nobody in view, or three minutes with no pose, so the camera does not run on
