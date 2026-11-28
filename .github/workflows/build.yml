@@ -80,3 +80,9 @@ jobs:
           gh release delete test-build --yes --cleanup-tag --repo "$GITHUB_REPOSITORY" || true
           gh release create test-build suryanamaskar-counter-test.apk --repo "$GITHUB_REPOSITORY" \
             --title "Test build" --notes "Latest test build for trying the app on your own phone. Not the Play Store version." --prerelease
+          # once the release was left as a draft (download link gave 404): make sure it is published
+          for i in 1 2 3; do
+            [ "$(gh release view test-build --repo "$GITHUB_REPOSITORY" --json isDraft -q .isDraft)" = "false" ] && break
+            sleep 5; gh release edit test-build --draft=false --repo "$GITHUB_REPOSITORY" || true
+          done
+          [ "$(gh release view test-build --repo "$GITHUB_REPOSITORY" --json isDraft -q .isDraft)" = "false" ]
